@@ -1,0 +1,112 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Player {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  eloScore     Int      @default(1000)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  decks             Deck[]
+  gamesAsPlayer1    Game[]            @relation("Player1Games")
+  gamesAsPlayer2    Game[]            @relation("Player2Games")
+  gamesWon          Game[]            @relation("WinnerGames")
+  gameActions       GameAction[]
+  matchmakingQueue  MatchmakingQueue?
+}
+
+model Card {
+  id         String   @id @default(uuid())
+  name       String
+  cardType   String
+  manaCost   Int
+  attack     Int?
+  defense    Int?
+  effectText String?
+  rarity     String
+  imageUrl   String?
+  createdAt  DateTime @default(now())
+
+  deckCards   DeckCard[]
+  gameActions GameAction[]
+}
+
+model Deck {
+  id        String   @id @default(uuid())
+  playerId  String
+  name      String
+  isValid   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  player    Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  deckCards DeckCard[]
+  games1    Game[]     @relation("Deck1Games")
+  games2    Game[]     @relation("Deck2Games")
+}
+
+model DeckCard {
+  deckId   String
+  cardId   String
+  quantity Int    @default(1)
+
+  deck Deck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@id([deckId, cardId])
+}
+
+model Game {
+  id        String    @id @default(uuid())
+  player1Id String
+  player2Id String
+  deck1Id   String
+  deck2Id   String
+  winnerId  String?
+  status    String    @default("waiting")
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  player1  Player       @relation("Player1Games", fields: [player1Id], references: [id])
+  player2  Player       @relation("Player2Games", fields: [player2Id], references: [id])
+  deck1    Deck         @relation("Deck1Games", fields: [deck1Id], references: [id])
+  deck2    Deck         @relation("Deck2Games", fields: [deck2Id], references: [id])
+  winner   Player?      @relation("WinnerGames", fields: [winnerId], references: [id])
+  actions  GameAction[]
+}
+
+model GameAction {
+  id         String   @id @default(uuid())
+  gameId     String
+  playerId   String
+  cardId     String?
+  actionType String
+  turnNumber Int
+  payload    Json?
+  createdAt  DateTime @default(now())
+
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id])
+  card   Card?  @relation(fields: [cardId], references: [id])
+}
+
+model MatchmakingQueue {
+  id       String   @id @default(uuid())
+  playerId String   @unique
+  status   String   @default("waiting")
+  eloMin   Int
+  eloMax   Int
+  joinedAt DateTime @default(now())
+
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
