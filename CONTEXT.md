@@ -1,5 +1,16 @@
 # Olympos: Card Clash — Contexte Projet
 
+## ⚠️ Instructions pour Claude Code
+- Lis TOUJOURS ce fichier en entier avant de faire quoi que ce soit
+- Lis TOUJOURS les fichiers design dans l'ordre indiqué ci-dessous
+- Ne jamais créer de fichiers en dehors de la structure monorepo définie
+- Ne jamais demander de confirmation entre les étapes, exécute tout d'un coup
+- Toujours vérifier que le serveur démarre sans erreur après chaque modification
+- En cas de doute sur un chemin de fichier, relis la section "Structure du projet"
+- Ne jamais hardcoder de couleurs — utiliser uniquement les classes Tailwind du design system
+
+---
+
 ## Concept
 Jeu de cartes stratégique en ligne, tour par tour, 1v1.
 Thématique : Mythologie grecque.
@@ -16,28 +27,30 @@ Deck : 30 cartes max, 2 exemplaires max par carte.
 - Historique des parties et statistiques
 - Système de comptes (inscription, connexion, profil)
 
-## Stack Technique
-
-### Frontend (pas encore commencé)
-- React 18 + Vite
-- Zustand (état global)
-- Framer Motion (animations)
-- Socket.io-client (WebSocket)
-
-### Backend (à initialiser)
-- Node.js + NestJS
-- Prisma ORM
-- PostgreSQL via Docker
-- Redis via Docker
-- JWT + bcrypt (auth)
-- Socket.io (WebSocket serveur)
+---
 
 ## Structure du projet (Monorepo)
 
+```
 olympos/
 ├── CONTEXT.md
-├── docker-compose.yml        ← PostgreSQL + Redis, à la racine
-├── backend/                  ← Projet NestJS
+├── docker-compose.yml              ← PostgreSQL + Redis, à la racine
+├── design/                         ← Fichiers Stitch (référence design)
+│   ├── aura_of_olympus/
+│   │   └── DESIGN.md              ← Système de design global (tokens, typo, règles)
+│   ├── login_register/
+│   │   ├── code.html              ← Code Stitch de référence Login
+│   │   └── screen.png             ← Capture visuelle Login
+│   ├── dashboard/
+│   │   ├── code.html              ← Code Stitch de référence Dashboard
+│   │   └── screen.png             ← Capture visuelle Dashboard
+│   ├── deck_builder/
+│   │   ├── code.html              ← Code Stitch de référence Deck Builder
+│   │   └── screen.png             ← Capture visuelle Deck Builder
+│   └── game_board/
+│       ├── code.html              ← Code Stitch de référence Game Board
+│       └── screen.png             ← Capture visuelle Game Board
+├── backend/                        ← Projet NestJS
 │   ├── .env
 │   ├── prisma/
 │   │   └── schema.prisma
@@ -49,15 +62,151 @@ olympos/
 │       ├── game/
 │       ├── matchmaking/
 │       └── gateway/
-└── frontend/                 ← Projet React (à venir)
+└── frontend/                       ← Projet React + Vite
+    ├── .env
+    ├── tailwind.config.js
+    ├── index.html
     └── src/
+        ├── components/
+        │   ├── layout/
+        │   │   ├── Sidebar.tsx
+        │   │   └── Topbar.tsx
+        │   ├── ui/
+        │   │   ├── Button.tsx
+        │   │   ├── Card.tsx
+        │   │   ├── StatCard.tsx
+        │   │   └── Badge.tsx
+        │   └── game/
+        │       ├── GameCard.tsx
+        │       ├── PlayerZone.tsx
+        │       └── BattleLog.tsx
+        ├── pages/
+        │   ├── Login.tsx
+        │   ├── Dashboard.tsx
+        │   ├── DeckBuilder.tsx
+        │   └── GameBoard.tsx
+        ├── store/
+        │   ├── authStore.ts
+        │   ├── deckStore.ts
+        │   └── gameStore.ts
+        ├── services/
+        │   ├── api.ts
+        │   ├── authService.ts
+        │   ├── deckService.ts
+        │   └── gameService.ts
+        ├── socket/
+        │   └── gameSocket.ts
+        ├── router/
+        │   └── index.tsx
+        ├── App.tsx
+        └── main.tsx
+```
+
+---
 
 ## Conventions importantes
 - Toutes les commandes Prisma se lancent depuis `backend/`
-- Toutes les commandes npm se lancent depuis `backend/`
+- Toutes les commandes npm backend se lancent depuis `backend/`
+- Toutes les commandes npm frontend se lancent depuis `frontend/`
 - Le docker-compose.yml est toujours à la racine `olympos/`
-- Les variables d'environnement sont dans `backend/.env`
+- Les variables d'environnement backend sont dans `backend/.env`
+- Les variables d'environnement frontend sont dans `frontend/.env`
 - Ne jamais créer de fichiers en dehors de cette structure
+
+---
+
+## Stack Technique
+
+### Frontend
+- React 18 + Vite
+- TypeScript strict
+- Tailwind CSS (config copiée exactement depuis design/login_register/code.html)
+- Zustand (état global)
+- Framer Motion (animations)
+- Socket.io-client (WebSocket)
+- React Router v6 (navigation)
+- Axios (appels API)
+- Fonts : Noto Serif (headlines) + Manrope (body) via Google Fonts
+
+### Backend
+- Node.js + NestJS
+- Prisma ORM
+- PostgreSQL 15 via Docker
+- Redis 7 via Docker
+- JWT + bcrypt (auth)
+- Socket.io (WebSocket serveur)
+
+---
+
+## Variables d'environnement
+
+### backend/.env
+```
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/olympos?schema=public"
+REDIS_URL="redis://localhost:6379"
+JWT_SECRET="olympos_super_secret_key_change_in_prod"
+JWT_EXPIRES_IN="7d"
+PORT=3000
+```
+
+### frontend/.env
+```
+VITE_API_URL=http://localhost:3000
+VITE_WS_URL=http://localhost:3000
+VITE_USE_MOCK=true
+```
+
+---
+
+## Design — Fichiers de référence (dans /design)
+
+### Ordre de lecture obligatoire avant de coder le frontend
+1. `design/aura_of_olympus/DESIGN.md` — système de design complet, tokens, typographie, règles
+2. `design/login_register/code.html` — référence Login (contient le tailwind.config complet à copier)
+3. `design/dashboard/code.html` — référence Dashboard
+4. `design/deck_builder/code.html` — référence Deck Builder
+5. `design/game_board/code.html` — référence Game Board
+
+### Règles d'utilisation des fichiers design
+- Le `code.html` de chaque dossier est le code Stitch à convertir en composant React pixel perfect
+- Adapter uniquement la syntaxe JSX (className au lieu de class, etc.)
+- Le `screen.png` est la capture visuelle de référence finale
+- Le `tailwind.config` du fichier `design/login_register/code.html` fait référence absolue
+  → le copier exactement dans `frontend/tailwind.config.js`
+
+### Fonts
+- Headlines / Titres : Noto Serif
+- Body / Labels : Manrope
+- À importer dans `frontend/index.html` depuis Google Fonts
+
+### Navigation sidebar (visible sur dashboard, deck_builder, game_board)
+- Battlefront → /dashboard
+- Armory → /deck-builder
+- Pantheon → /leaderboard
+- Treasury → /shop
+- Archives → /history
+
+### Pages à développer
+1. Login / Register → /login (design/login_register/)
+2. Dashboard → /dashboard (design/dashboard/)
+3. Deck Builder → /deck-builder (design/deck_builder/)
+4. Game Board → /game/:id (design/game_board/)
+
+---
+
+## Routes frontend (React Router)
+```
+/ → redirect /dashboard si connecté, sinon /login
+/login → Login / Register (public)
+/dashboard → Dashboard Battlefront (protégé par JWT)
+/deck-builder → Deck Builder liste (protégé)
+/deck-builder/:deckId → Deck Builder édition (protégé)
+/game/:gameId → Game Board (protégé)
+/leaderboard → Classement (protégé)
+/history → Historique parties (protégé)
+```
+
+---
 
 ## Base de données — Modèles Prisma
 
@@ -125,6 +274,8 @@ olympos/
 - eloMax: Int
 - joinedAt: DateTime
 
+---
+
 ## Architecture Backend — Modules NestJS
 
 ### AuthModule
@@ -158,6 +309,8 @@ olympos/
 - POST /matchmaking/join → rejoindre la file
 - DELETE /matchmaking/leave → quitter la file
 
+---
+
 ## WebSocket — GameGateway (Socket.io)
 
 ### Événements reçus (client → serveur)
@@ -171,38 +324,32 @@ olympos/
 - game_action : action jouée par l'adversaire
 - game_over : fin de partie avec résultat
 
+---
+
 ## Règles métier importantes
 - Le serveur est la seule source de vérité (pas de confiance au client)
 - Toutes les actions sont validées côté serveur avant d'être appliquées
 - L'état de partie est stocké dans Redis (TTL 10 min pour reconnexion)
 - Passé le TTL, la partie est déclarée forfait pour le joueur déconnecté
 - Le matchmaking apparie des joueurs avec un écart ELO max de 200 points
-
-## Variables d'environnement (.env)
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/olympos?schema=public"
-REDIS_URL="redis://localhost:6379"
-JWT_SECRET="olympos_super_secret_key_change_in_prod"
-JWT_EXPIRES_IN="7d"
-PORT=3000
-```
+- Un deck est valide si et seulement si il contient exactement 30 cartes
+- Maximum 2 exemplaires de la même carte par deck
 
 ---
 
-### Ensuite dans Claude Code, commence toujours par :
-```
-Lis le fichier CONTEXT.md avant de faire quoi que ce soit.
-Ensuite initialise le projet backend complet selon ce contexte :
-- Crée le docker-compose.yml avec PostgreSQL et Redis
-- Initialise NestJS + Prisma
-- Crée tous les modules définis dans le contexte
-- Lance les migrations Prisma
-- Vérifie que le serveur démarre
-```
+## État d'avancement
 
----
+### ✅ Terminé
+- Document d'intention
+- MCD (Mocodo)
+- MLD (draw.io)
+- Fichier CONTEXT.md
+- Design system Stitch (4 pages + DESIGN.md dans /design)
 
-### Astuce pour la suite
+### 🔄 En cours
+- Backend NestJS (initialisation)
 
-À chaque nouvelle session Claude Code, commence toujours par :
-```
-Lis CONTEXT.md pour te remettre dans le contexte du projet.
+### ⏳ À faire
+- Frontend React
+- Tests
+- Déploiement

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Olympos: Card Clash - Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:wght@400;700;900&amp;family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#2c303d",
+                        "surface-bright": "#353946",
+                        "on-secondary-fixed": "#1e055a",
+                        "on-secondary-fixed-variant": "#4a3a87",
+                        "error-container": "#93000a",
+                        "on-secondary": "#33226f",
+                        "primary-fixed-dim": "#e6c364",
+                        "tertiary-fixed": "#dde1ff",
+                        "surface-variant": "#313442",
+                        "primary-fixed": "#ffe08f",
+                        "on-tertiary-container": "#2e3b77",
+                        "tertiary-fixed-dim": "#b9c3ff",
+                        "on-primary-container": "#503d00",
+                        "on-primary-fixed-variant": "#584400",
+                        "surface-container-high": "#262a37",
+                        "surface-container-highest": "#313442",
+                        "outline": "#99907e",
+                        "on-background": "#dfe2f3",
+                        "surface-container-lowest": "#0a0e1a",
+                        "surface-container": "#1b1f2c",
+                        "on-tertiary": "#1e2b66",
+                        "secondary-fixed-dim": "#cbbeff",
+                        "secondary": "#cbbeff",
+                        "on-secondary-container": "#baa9ff",
+                        "inverse-surface": "#dfe2f3",
+                        "primary-container": "#c9a84c",
+                        "on-error": "#690005",
+                        "background": "#0f131f",
+                        "on-primary": "#3d2e00",
+                        "surface": "#0f131f",
+                        "tertiary": "#b9c4ff",
+                        "tertiary-container": "#9ba8eb",
+                        "secondary-container": "#4a3a87",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#e7deff",
+                        "on-tertiary-fixed-variant": "#35437e",
+                        "on-surface-variant": "#d0c5b2",
+                        "surface-container-low": "#171b28",
+                        "on-surface": "#dfe2f3",
+                        "primary": "#e6c364",
+                        "surface-dim": "#0f131f",
+                        "inverse-primary": "#755b00",
+                        "surface-tint": "#e6c364",
+                        "on-primary-fixed": "#241a00",
+                        "on-tertiary-fixed": "#041451",
+                        "error": "#ffb4ab",
+                        "outline-variant": "#4d4637"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Noto Serif"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .lightning-bg {
+            background-image: radial-gradient(circle at 50% -20%, rgba(230, 195, 100, 0.05) 0%, transparent 50%),
+                              linear-gradient(to bottom, #0a0e1a, #0f131f);
+        }
+        .ichor-glow {
+            box-shadow: inset 0 0 10px rgba(255, 224, 143, 0.3);
+        }
+        .ornament-tl { top: 20px; left: 20px; }
+        .ornament-tr { top: 20px; right: 20px; transform: scaleX(-1); }
+        .ornament-bl { bottom: 20px; left: 20px; transform: scaleY(-1); }
+        .ornament-br { bottom: 20px; right: 20px; transform: scale(-1); }
+    </style>
+</head>
+<body class="bg-surface-container-lowest text-on-surface font-body min-h-screen flex items-center justify-center overflow-hidden lightning-bg selection:bg-primary-container selection:text-on-primary">
+<!-- Background Decorative Elements -->
+<div class="fixed inset-0 pointer-events-none z-0">
+<!-- Corner Ornaments -->
+<div class="absolute ornament-tl w-32 h-32 opacity-40">
+<span class="material-symbols-outlined text-primary text-8xl">architecture</span>
+</div>
+<div class="absolute ornament-tr w-32 h-32 opacity-40">
+<span class="material-symbols-outlined text-primary text-8xl">architecture</span>
+</div>
+<div class="absolute ornament-bl w-32 h-32 opacity-40">
+<span class="material-symbols-outlined text-primary text-8xl">architecture</span>
+</div>
+<div class="absolute ornament-br w-32 h-32 opacity-40">
+<span class="material-symbols-outlined text-primary text-8xl">architecture</span>
+</div>
+<!-- Faint Lightning/Ethereal Smoke -->
+<div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] opacity-10 blur-[120px] bg-secondary-container rounded-full"></div>
+<div class="absolute bottom-0 right-0 w-96 h-96 opacity-5 bg-primary-fixed rounded-full blur-[100px]"></div>
+</div>
+<!-- Main Content Shell -->
+<main class="relative z-10 w-full max-w-lg px-6 flex flex-col items-center">
+<!-- Header / Logo Area -->
+<div class="text-center mb-12">
+<div class="inline-block relative">
+<span class="material-symbols-outlined text-primary text-7xl absolute -top-12 left-1/2 -translate-x-1/2 opacity-80" style="font-variation-settings: 'FILL' 1;">bolt</span>
+<h1 class="font-headline text-5xl md:text-6xl font-black uppercase tracking-tighter text-primary drop-shadow-[0_0_15px_rgba(230,195,100,0.4)]">
+                    Olympos
+                </h1>
+<div class="flex items-center justify-center gap-4 mt-2">
+<div class="h-px w-12 bg-gradient-to-r from-transparent to-primary"></div>
+<span class="font-headline text-xl tracking-[0.3em] text-on-surface-variant font-bold uppercase">Card Clash</span>
+<div class="h-px w-12 bg-gradient-to-l from-transparent to-primary"></div>
+</div>
+</div>
+</div>
+<!-- Auth Container -->
+<div class="w-full bg-surface-container-low/80 backdrop-blur-xl rounded-lg p-8 md:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-outline-variant/10 relative overflow-hidden group">
+<!-- Subtle Marble Texture Overlay -->
+<div class="absolute inset-0 opacity-5 pointer-events-none mix-blend-overlay">
+<img alt="" class="w-full h-full object-cover" data-alt="high-resolution white marble texture with elegant grey veining and subtle mineral details" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDV94HkHc0tlj5noUP3c3wtTl4XbCEoNzGJKcYZ-9HuLeIpyID671ehFzZtC6fJ9mA3pfJ8NMTSdrG9xRkbORpjf2g9a-fV7wjG1BINPjuW1v39ooDJhufhB2exTwJn6PGh8ZHTQyk5tHLd7LgRfVgRiA9miCGEjnauZ7mdV8aww3nj5YMzqB5yPX3t8iCvDxCkfkB9xcAtRzdf-Nklt0qs-iBK9CHJ_zJ_JABtFe_LJzbcuSSBohoOY8slu5jCW27HmbQdeSfM3jQ"/>
+</div>
+<!-- Login Form -->
+<form class="space-y-6 relative z-10">
+<div class="space-y-2">
+<label class="block text-xs font-bold tracking-[0.2em] uppercase text-on-surface-variant ml-1">The Messenger's Handle (Email)</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">alternate_email</span>
+<input class="w-full bg-surface-container-lowest border-0 rounded-lg py-4 pl-12 pr-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary/50 transition-all font-body ichor-glow" placeholder="zeus@olympos.god" type="email"/>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between items-center px-1">
+<label class="block text-xs font-bold tracking-[0.2em] uppercase text-on-surface-variant">The Secret Cipher</label>
+<a class="text-[10px] uppercase tracking-wider text-primary/70 hover:text-primary transition-colors" href="#">Forgotten Ritual?</a>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline text-xl">lock</span>
+<input class="w-full bg-surface-container-lowest border-0 rounded-lg py-4 pl-12 pr-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary/50 transition-all font-body ichor-glow" placeholder="••••••••••••" type="password"/>
+</div>
+</div>
+<!-- CTA Button -->
+<button class="w-full relative group/btn mt-4 overflow-hidden" type="submit">
+<div class="absolute inset-0 bg-gradient-to-r from-primary to-primary-container group-hover/btn:scale-105 transition-transform duration-500"></div>
+<div class="relative py-5 px-8 flex items-center justify-center gap-3">
+<span class="font-headline text-lg font-black uppercase tracking-widest text-on-primary">Enter Olympos</span>
+<span class="material-symbols-outlined text-on-primary text-xl group-hover/btn:translate-x-1 transition-transform">arrow_forward_ios</span>
+</div>
+<!-- Radiant Inner Glow -->
+<div class="absolute inset-0 border border-primary-fixed/30 rounded-lg pointer-events-none"></div>
+</button>
+</form>
+<!-- Secondary Actions -->
+<div class="mt-10 pt-8 border-t border-outline-variant/10 text-center relative z-10">
+<p class="text-sm text-on-surface-variant mb-4">New to the Divine Arena?</p>
+<button class="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.15em] text-primary hover:text-primary-fixed transition-colors">
+<span>Switch to Register</span>
+<span class="material-symbols-outlined text-base">person_add</span>
+</button>
+</div>
+</div>
+<!-- Social Proof / Footer Metadata -->
+<div class="mt-12 flex flex-col items-center space-y-6 opacity-60 hover:opacity-100 transition-opacity">
+<div class="flex gap-8">
+<div class="flex flex-col items-center">
+<span class="font-headline text-2xl font-bold text-on-surface">12k+</span>
+<span class="text-[10px] uppercase tracking-tighter text-outline font-bold">Divine Warriors</span>
+</div>
+<div class="w-px h-10 bg-outline-variant/30"></div>
+<div class="flex flex-col items-center">
+<span class="font-headline text-2xl font-bold text-on-surface">400+</span>
+<span class="text-[10px] uppercase tracking-tighter text-outline font-bold">Relic Cards</span>
+</div>
+</div>
+<p class="text-[10px] uppercase tracking-widest text-outline text-center leading-loose">
+                Property of Olympos Interactive • Sealed by the Oracle • Ver. 2.4.0
+            </p>
+</div>
+</main>
+<!-- Decorative Bottom Card Assets -->
+<div class="fixed bottom-[-50px] -left-20 rotate-12 opacity-10 hidden lg:block">
+<div class="w-64 h-96 bg-surface-container-highest rounded-xl border-4 border-primary/20 shadow-2xl relative">
+<img alt="" class="w-full h-full object-cover rounded-lg" data-alt="majestic white marble statue of a greek god standing heroically against a dark stormy sky with dramatic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrt6eR8ltMNGk4l_Q_fi9xx5BKbBkKynQ3CpbV_ne7lGYSMrQcelRCX3vFo2lfYeLoq1WaYAf7xvYp5XiwIV6G0NqPCKuWF-20-JKRjeN-LBmqHHqlrvUIGd4aX6-iX8z-mQtueN3HOR23tLKxL5r2wqtlpDk2coMlMpvCUSwkcSrDZl9EAESAVXEXR8KQXMtpFjjfPRuzRF_hbY7zdSQNKuqNhnXKZJvpB91EZuLmQhzI7ueCiH21UXm9Th3c_VSrzKcfIRrK9S8"/>
+</div>
+</div>
+<div class="fixed bottom-[-80px] -right-20 -rotate-12 opacity-10 hidden lg:block">
+<div class="w-64 h-96 bg-surface-container-highest rounded-xl border-4 border-primary/20 shadow-2xl relative">
+<img alt="" class="w-full h-full object-cover rounded-lg" data-alt="close up of a golden greek helmet with intricate engravings and a red plume on a dark velvet background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABWjdvLlK9XCYt7-cuHeq2BZYvGjyJIobKvzXZQXkvYWnnHwaa-AVDlklmbmedwaGPhC9CIlPz1zBDKVzWYvau98g4rvYBShaMASajVlGYSN5yPPMME9P1IH46DX6AlXWfGVWgBiup56MkNl5NymqQWdefU_v7tlpZ0BCJiLnhnC77ulmuBVozWdrNzkA0maQBfk8TVfgURMfiyTXOaKmjEpAKmeWh80J8HmHHZ2xwMWvsPSqqH_wjm_VmbTOg4Ds9uAkmOrUt-qQ"/>
+</div>
+</div>
+</body></html>
