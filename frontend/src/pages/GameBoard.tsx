@@ -43,9 +43,10 @@ function FieldSlot({
       {card && (
         <div className="h-full flex flex-col relative">
           <div className="absolute inset-0 bg-surface-container-high opacity-70 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary-container text-4xl opacity-40">
-              {isPlayer ? 'shield' : 'dark_mode'}
-            </span>
+            {card.imageUrl
+              ? <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover" />
+              : <span className="material-symbols-outlined text-primary-container text-4xl opacity-40">{isPlayer ? 'shield' : 'dark_mode'}</span>
+            }
           </div>
           <div className="relative z-10 p-2 flex flex-col justify-between h-full">
             <p className={`text-[9px] font-bold uppercase tracking-tighter ${isPlayer ? 'text-primary' : 'text-secondary'}`}>
@@ -282,6 +283,9 @@ export default function GameBoard() {
                     onClick={() => canAfford && isPlayerTurn && selectHandCard(i)}
                   >
                     <div className="absolute inset-0 rounded-lg overflow-hidden">
+                      {card.imageUrl && (
+                        <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover opacity-60" />
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent"></div>
                     </div>
                     <div className="relative z-10 p-2 flex flex-col h-full justify-between">

@@ -323,43 +323,50 @@ export default function DeckBuilder() {
                       </div>
                     )}
                     <div className="absolute -inset-0.5 bg-gradient-to-tr from-primary/50 via-primary to-primary-container opacity-0 group-hover:opacity-60 transition-opacity blur-sm rounded-xl"></div>
-                    <div className="relative h-full bg-surface-container-highest rounded-lg overflow-hidden flex flex-col card-inner-glow">
-                      <div className="relative h-[52%] w-full bg-surface-container-high flex items-center justify-center">
-                        {card.imageUrl ? (
-                          <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover" />
-                        ) : (
+                    <div className="relative h-full bg-surface-container-highest rounded-lg overflow-hidden card-inner-glow">
+                      {/* Art full-bleed */}
+                      {card.imageUrl ? (
+                        <img src={card.imageUrl} alt={card.name} className="absolute inset-0 w-full h-full object-cover object-top" />
+                      ) : (
+                        <div className="absolute inset-0 bg-surface-container-high flex items-center justify-center">
                           <span className="material-symbols-outlined text-primary-container text-5xl opacity-30">
                             {card.cardType === 'creature' ? 'pets' : card.cardType === 'spell' ? 'auto_awesome' : 'diamond'}
                           </span>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-surface-container-highest to-transparent"></div>
-                        <div className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-secondary-container glass-panel flex items-center justify-center border border-primary/40">
-                          <span className="font-headline font-bold text-primary text-xs">{card.manaCost}</span>
                         </div>
+                      )}
+                      {/* Gradient overlay bottom */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
+                      {/* Mana top-left */}
+                      <div className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-secondary-container/80 backdrop-blur-sm flex items-center justify-center border border-primary/50">
+                        <span className="font-headline font-bold text-primary text-xs">{card.manaCost}</span>
                       </div>
-                      <div className="flex-1 p-3 flex flex-col justify-between">
+                      {/* Rarity gem top-right */}
+                      <div className={`absolute top-2 right-2 w-3.5 h-3.5 rotate-45 ${rarityColors[card.rarity]} ${card.rarity === 'legendary' ? 'shadow-[0_0_8px_rgba(230,195,100,0.8)]' : ''}`} />
+                      {/* Text bottom overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 p-2.5 flex flex-col gap-1">
                         <div className="text-center">
-                          <h3 className="font-headline text-sm text-primary leading-tight">{card.name}</h3>
-                          <p className="text-[9px] text-on-surface-variant uppercase tracking-[0.15em] mt-0.5">{card.rarity} {card.cardType}</p>
+                          <h3 className="font-headline text-[11px] text-primary leading-tight drop-shadow-lg">{card.name}</h3>
+                          <p className="text-[8px] text-on-surface/60 uppercase tracking-[0.12em]">{card.rarity} {card.cardType}</p>
                         </div>
                         {card.effectText && (
-                          <p className="text-[9px] text-on-surface/60 text-center italic leading-relaxed px-1 mt-1 line-clamp-2">
+                          <p className="text-[8px] text-on-surface/70 text-center italic leading-tight line-clamp-2 px-1">
                             "{card.effectText}"
                           </p>
                         )}
-                        <div className="flex justify-between items-end mt-1">
-                          {card.attack !== undefined ? (
-                            <div className="w-7 h-7 rounded bg-surface-container-low flex items-center justify-center border border-outline-variant/30">
-                              <span className="font-headline text-primary font-bold text-xs">{card.attack}</span>
-                            </div>
-                          ) : <div />}
-                          <div className={`w-4 h-4 rotate-45 ${rarityColors[card.rarity]} ${card.rarity === 'legendary' ? 'shadow-[0_0_8px_rgba(230,195,100,0.6)]' : ''}`}></div>
-                          {card.defense !== undefined ? (
-                            <div className="w-7 h-7 rounded bg-surface-container-low flex items-center justify-center border border-outline-variant/30">
-                              <span className="font-headline text-error font-bold text-xs">{card.defense}</span>
-                            </div>
-                          ) : <div />}
-                        </div>
+                        {(card.attack !== undefined || card.defense !== undefined) && (
+                          <div className="flex justify-between items-center mt-0.5">
+                            {card.attack !== undefined ? (
+                              <div className="w-6 h-6 rounded bg-black/60 backdrop-blur-sm flex items-center justify-center border border-primary/40">
+                                <span className="font-headline text-primary font-bold text-[10px]">{card.attack}</span>
+                              </div>
+                            ) : <div />}
+                            {card.defense !== undefined ? (
+                              <div className="w-6 h-6 rounded bg-black/60 backdrop-blur-sm flex items-center justify-center border border-error/40">
+                                <span className="font-headline text-error font-bold text-[10px]">{card.defense}</span>
+                              </div>
+                            ) : <div />}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

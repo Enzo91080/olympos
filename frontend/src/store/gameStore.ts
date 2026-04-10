@@ -11,6 +11,7 @@ export interface GameCard {
   defense?: number
   effectText?: string
   rarity?: string
+  imageUrl?: string
   hasAttacked?: boolean
   isSummoningSick?: boolean
 }
@@ -71,6 +72,7 @@ function toGameCard(card: BackendCard): GameCard {
     defense: card.defense ?? undefined,
     effectText: card.effectText ?? undefined,
     rarity: card.rarity,
+    imageUrl: card.imageUrl ?? undefined,
     hasAttacked: false,
     isSummoningSick: false,
   }
@@ -94,7 +96,7 @@ const EMPTY_PLAYER: PlayerState = {
 function simulateEnemyTurn(
   state: Pick<GameState, 'enemy' | 'player' | 'battleLog' | 'turn' | 'enemyDeckRemaining'>,
 ): Partial<GameState> {
-  const newMaxMana = Math.min(state.turn + 1, 10)
+  const newMaxMana = Math.min(Math.ceil(state.turn / 2), 10)
   let enemy = {
     ...state.enemy,
     mana: newMaxMana,
