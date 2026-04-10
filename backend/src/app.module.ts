@@ -11,6 +11,7 @@ import { DeckModule } from './deck/deck.module';
 import { GameModule } from './game/game.module';
 import { MatchmakingModule } from './matchmaking/matchmaking.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { OracleModule } from './oracle/oracle.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { GatewayModule } from './gateway/gateway.module';
     GameModule,
     MatchmakingModule,
     GatewayModule,
+    OracleModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

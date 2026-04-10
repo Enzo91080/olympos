@@ -1,5 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
+import OracleModal from '../OracleModal'
 
 interface SidebarProps {
   activeRoute?: string
@@ -16,6 +18,7 @@ const navItems = [
 export default function Sidebar({ activeRoute }: SidebarProps) {
   const { player, logout } = useAuthStore()
   const navigate = useNavigate()
+  const [oracleOpen, setOracleOpen] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -23,6 +26,7 @@ export default function Sidebar({ activeRoute }: SidebarProps) {
   }
 
   return (
+    <>
     <aside className="fixed left-0 top-0 h-screen w-64 flex flex-col z-40 bg-surface shadow-[10px_0_30px_rgba(10,14,26,0.5)] font-headline font-medium">
       <div className="px-8 py-10">
         <h1 className="text-xl font-black text-primary-container tracking-tighter">OLYMPOS</h1>
@@ -57,8 +61,11 @@ export default function Sidebar({ activeRoute }: SidebarProps) {
         </div>
 
         <div className="space-y-1">
-          <button className="w-full flex items-center gap-3 px-4 py-2 text-surface-variant hover:text-primary-container transition-colors">
-            <span className="material-symbols-outlined text-sm">auto_awesome</span>
+          <button
+            onClick={() => setOracleOpen(true)}
+            className="w-full flex items-center gap-3 px-4 py-2 text-surface-variant hover:text-secondary transition-colors group"
+          >
+            <span className="material-symbols-outlined text-sm group-hover:animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
             <span className="text-xs uppercase tracking-widest">Oracle</span>
           </button>
           <button
@@ -71,5 +78,8 @@ export default function Sidebar({ activeRoute }: SidebarProps) {
         </div>
       </div>
     </aside>
+
+    {oracleOpen && <OracleModal onClose={() => setOracleOpen(false)} />}
+    </>
   )
 }
