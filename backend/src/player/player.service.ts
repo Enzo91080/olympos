@@ -22,6 +22,19 @@ export class PlayerService {
     return player;
   }
 
+  async getLeaderboard(limit = 50) {
+    return this.prisma.player.findMany({
+      orderBy: { eloScore: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        username: true,
+        eloScore: true,
+        avatarUrl: true,
+      },
+    })
+  }
+
   async updateMe(playerId: string, data: { username?: string; avatarUrl?: string }) {
     return this.prisma.player.update({
       where: { id: playerId },

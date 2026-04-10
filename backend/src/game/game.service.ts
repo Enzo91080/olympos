@@ -261,6 +261,82 @@ export class GameService {
     await this.delState(gameId);
   }
 
+  // ─── Partie solo vs bot ──────────────────────────────────────────────────────
+
+  async createSoloGame(playerId: string, deckId: string) {
+    const bot = await this.prisma.player.findUnique({
+      where: { email: 'bot@olympos.internal' },
+    });
+    if (!bot) throw new BadRequestException('Bot player not found — run: npx prisma db seed');
+
+    const botDeck = await this.prisma.deck.findFirst({
+      where: { playerId: bot.id, isValid: true },
+      include: { deckCards: true },
+    });
+    if (!botDeck) throw new BadRequestException('Bot deck not found — run: npx prisma db seed');
+
+    const playerDeck = await this.prisma.deck.findUnique({
+      where: { id: deckId },
+      include: { deckCards: true },
+    });
+    if (!playerDeck) throw new NotFoundException('Deck not found');
+    if (!playerDeck.isValid) throw new BadRequestException('Your deck needs exactly 30 cards to play');
+
+    const game = await this.prisma.game.create({
+      data: {
+        player1Id: playerId,
+        player2Id: bot.id,
+        deck1Id: deckId,
+        deck2Id: botDeck.id,
+        status: 'in_progress',
+        startedAt: new Date(),
+      },
+    });
+
+    const deck1CardIds = playerDeck.deckCards.flatMap((dc) =>
+      Array(dc.quantity).fill(dc.cardId),
+    );
+    const deck2CardIds = botDeck.deckCards.flatMap((dc) =>
+      Array(dc.quantity).fill(dc.cardId),
+    );
+
+    const state = await this.engine.initGameState(
+      game.id, playerId, deck1CardIds, bot.id, deck2CardIds,
+    );
+    await this.saveState(game.id, state);
+
+    // Fetch full card data for all IDs in play
+    const allIds = [...new Set([...deck1CardIds, ...deck2CardIds])];
+    const cards = await this.prisma.card.findMany({ where: { id: { in: allIds } } });
+    const cardMap = Object.fromEntries(cards.map((c) => [c.id, c]));
+
+    return {
+      gameId: game.id,
+      botId: bot.id,
+      botUsername: bot.username,
+      player: {
+        id: playerId,
+        hand: state.player1.hand.map((id) => cardMap[id]),
+        deckRemaining: state.player1.deckRemaining.map((id) => cardMap[id]),
+      },
+      bot: {
+        hand: state.player2.hand.map((id) => cardMap[id]),
+        deckRemaining: state.player2.deckRemaining.map((id) => cardMap[id]),
+      },
+    };
+  }
+
+  async finishSoloGame(gameId: string, requesterId: string, winnerId: string) {
+    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) throw new NotFoundException('Game not found');
+    if (game.player1Id !== requesterId && game.player2Id !== requesterId)
+      throw new ForbiddenException();
+    if (game.status === 'finished') return { success: true };
+
+    await this.finalizeGame(gameId, winnerId, 'solo');
+    return { success: true };
+  }
+
   // ─── Forfait sur TTL expiré ─────────────────────────────────────────────────
 
   async forfeitExpired(gameId: string, connectedPlayerId: string): Promise<void> {

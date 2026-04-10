@@ -12,6 +12,11 @@ export class PlayerController {
     return this.playerService.getMe(req.user.id);
   }
 
+  @Get('leaderboard')
+  getLeaderboard() {
+    return this.playerService.getLeaderboard()
+  }
+
   @Patch('me')
   updateMe(
     @Req() req: any,
