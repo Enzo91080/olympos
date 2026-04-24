@@ -112,7 +112,8 @@ export class GameEngineService {
       );
     }
 
-    const newHand = player.hand.filter((id) => id !== cardId);
+    const removeIdx = player.hand.indexOf(cardId);
+    const newHand = player.hand.filter((_, i) => i !== removeIdx);
     const newMana = player.mana - card.manaCost;
 
     let updatedPlayer: PlayerState = { ...player, hand: newHand, mana: newMana };
@@ -132,21 +133,46 @@ export class GameEngineService {
       };
       updatedPlayer = { ...updatedPlayer, board: [...updatedPlayer.board, creature] };
 
-    } else if (card.cardType === 'spell') {
-      // Sort : dégâts directs au joueur adverse = manaCost * 2
-      const damage = card.manaCost * 2;
-      updatedOpponent = { ...updatedOpponent, hp: updatedOpponent.hp - damage };
+    } else {
+      // Spell / Artifact — résolution data-driven via spellTarget
+      const power = card.attack ?? 0;
+      const bonusDef = card.defense ?? 0;
+      const st = card.spellTarget ?? null;
 
-    } else if (card.cardType === 'artifact') {
-      // Artefact : toutes les créatures alliées +1/+1
-      updatedPlayer = {
-        ...updatedPlayer,
-        board: updatedPlayer.board.map((c) => ({
-          ...c,
-          attack: c.attack + 1,
-          defense: c.defense + 1,
-        })),
-      };
+      if (st === 'targeted' || st === 'targeted_creature') {
+        // Ciblage géré par les actions attack/castSpell du gateway — ici on applique aux dégâts directs si aucune cible passée
+        updatedOpponent = { ...updatedOpponent, hp: Math.max(0, updatedOpponent.hp - power) };
+      } else if (st === 'aoe_enemy') {
+        const newBoard = updatedOpponent.board
+          .map((c) => ({ ...c, defense: c.defense - power }))
+          .filter((c) => c.defense > 0);
+        updatedOpponent = { ...updatedOpponent, board: newBoard };
+      } else if (st === 'self') {
+        if (power > 0) updatedPlayer = { ...updatedPlayer, hp: Math.min(20, updatedPlayer.hp + power) };
+        if (bonusDef > 0) {
+          updatedPlayer = {
+            ...updatedPlayer,
+            board: updatedPlayer.board.map((c) => ({ ...c, defense: c.defense + bonusDef })),
+          };
+        }
+      } else if (st === 'summon') {
+        if (updatedPlayer.board.length < MAX_BOARD_SIZE) {
+          const summoned: CardOnBoard = {
+            instanceId: uuid(),
+            cardId: card.id,
+            name: 'Serviteur',
+            attack: power || 1,
+            defense: bonusDef || 2,
+            canAttack: false,
+          };
+          updatedPlayer = { ...updatedPlayer, board: [...updatedPlayer.board, summoned] };
+        }
+      } else if (st === 'equip') {
+        // L'équipement nécessite une cible — géré via un endpoint dédié; ici on skip sans cible
+      } else {
+        // Fallback : dégâts directs
+        updatedOpponent = { ...updatedOpponent, hp: Math.max(0, updatedOpponent.hp - power) };
+      }
     }
 
     const newState = {

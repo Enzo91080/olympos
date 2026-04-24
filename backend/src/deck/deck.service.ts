@@ -45,6 +45,10 @@ export class DeckService {
     const deck = await this.prisma.deck.findUnique({ where: { id } });
     if (!deck) throw new NotFoundException('Deck not found');
     if (deck.playerId !== playerId) throw new ForbiddenException();
+    // Dissocier les parties qui référencent ce deck avant suppression
+    await this.prisma.game.updateMany({ where: { deck1Id: id }, data: { deck1Id: null } });
+    await this.prisma.game.updateMany({ where: { deck2Id: id }, data: { deck2Id: null } });
+    await this.prisma.deckCard.deleteMany({ where: { deckId: id } });
     await this.prisma.deck.delete({ where: { id } });
     return { deleted: true };
   }
@@ -58,8 +62,8 @@ export class DeckService {
     if (deck.playerId !== playerId) throw new ForbiddenException();
 
     const totalCards = deck.deckCards.reduce((sum, dc) => sum + dc.quantity, 0);
-    if (totalCards + quantity > 30)
-      throw new BadRequestException('Deck cannot exceed 30 cards');
+    if (totalCards + quantity > 10)
+      throw new BadRequestException('Deck cannot exceed 10 cards');
 
     const existing = deck.deckCards.find((dc) => dc.cardId === cardId);
     if (existing) {
@@ -97,7 +101,7 @@ export class DeckService {
     const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
     await this.prisma.deck.update({
       where: { id: deckId },
-      data: { isValid: total === 30 },
+      data: { isValid: total === 10 },
     });
   }
 }

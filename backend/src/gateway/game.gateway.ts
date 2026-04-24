@@ -10,17 +10,24 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { GameService } from '../game/game.service';
+import { MatchmakingService } from '../matchmaking/matchmaking.service';
+
+interface Session {
+  playerId: string;
+  gameId?: string;
+  deckId?: string;
+}
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
 
-  // socketId → { playerId, gameId }
-  private sessions = new Map<string, { playerId: string; gameId?: string }>();
+  private sessions = new Map<string, Session>();
 
   constructor(
     private jwtService: JwtService,
     private gameService: GameService,
+    private matchmakingService: MatchmakingService,
   ) {}
 
   // ─── Connexion / Déconnexion ───────────────────────────────────────────────
@@ -44,19 +51,86 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!session) return;
     this.sessions.delete(client.id);
 
-    // Si le joueur était en partie, l'adversaire connecté gagne par forfait (TTL)
     if (session.gameId) {
-      const opponentSocketId = this.findOpponentSocket(session.playerId, session.gameId);
-      if (opponentSocketId) {
+      const opponentEntry = this.findSocketByPlayerId(session.playerId, session.gameId);
+      if (opponentEntry) {
         try {
-          await this.gameService.forfeitExpired(session.gameId, opponentSocketId.playerId);
+          await this.gameService.forfeitExpired(session.gameId, opponentEntry.playerId);
           this.server.to(`game:${session.gameId}`).emit('game_over', {
-            winnerId: opponentSocketId.playerId,
+            winnerId: opponentEntry.playerId,
             reason: 'opponent_disconnected',
           });
         } catch { /* partie déjà terminée */ }
       }
     }
+  }
+
+  // ─── Matchmaking ───────────────────────────────────────────────────────────
+
+  @SubscribeMessage('join_matchmaking')
+  async handleJoinMatchmaking(
+    @MessageBody() data: { deckId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const session = this.sessions.get(client.id);
+    if (!session) return;
+
+    this.sessions.set(client.id, { ...session, deckId: data.deckId });
+
+    try {
+      const result = await this.matchmakingService.join(session.playerId);
+
+      if (result.matched && result.opponentId) {
+        const opponentSocketId = this.findSocketIdByPlayerId(result.opponentId);
+        const opponentSession = opponentSocketId ? this.sessions.get(opponentSocketId) : undefined;
+
+        if (!opponentSession?.deckId) {
+          client.emit('matchmaking:waiting');
+          return;
+        }
+
+        const pvpData = await this.gameService.createPvpGame(
+          session.playerId, data.deckId,
+          result.opponentId, opponentSession.deckId,
+        );
+
+        // Notify player 1 (me — first in queue)
+        client.emit('matchmaking:matched', {
+          gameId: pvpData.gameId,
+          opponentId: pvpData.player2.id,
+          opponentUsername: pvpData.player2.username,
+          isFirstPlayer: true,
+          player: { hand: pvpData.player1.hand, deckRemaining: pvpData.player1.deckRemaining },
+        });
+
+        // Notify player 2 (opponent — already waiting)
+        if (opponentSocketId) {
+          this.server.to(opponentSocketId).emit('matchmaking:matched', {
+            gameId: pvpData.gameId,
+            opponentId: pvpData.player1.id,
+            opponentUsername: pvpData.player1.username,
+            isFirstPlayer: false,
+            player: { hand: pvpData.player2.hand, deckRemaining: pvpData.player2.deckRemaining },
+          });
+        }
+      } else {
+        client.emit('matchmaking:waiting');
+      }
+    } catch (e: any) {
+      client.emit('matchmaking:error', { message: e.message || 'Erreur matchmaking' });
+    }
+  }
+
+  @SubscribeMessage('leave_matchmaking')
+  async handleLeaveMatchmaking(@ConnectedSocket() client: Socket) {
+    const session = this.sessions.get(client.id);
+    if (!session) return;
+
+    try {
+      await this.matchmakingService.leave(session.playerId);
+    } catch { /* pas dans la file */ }
+
+    client.emit('matchmaking:cancelled');
   }
 
   // ─── join_game ─────────────────────────────────────────────────────────────
@@ -72,20 +146,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const state = await this.gameService.joinGame(data.gameId, session.playerId);
 
-      // Associer le socket à la room et enregistrer le gameId dans la session
       await client.join(`game:${data.gameId}`);
       this.sessions.set(client.id, { ...session, gameId: data.gameId });
 
       if (state.status === 'in_progress' && state.connectedPlayers.length === 2) {
-        // Les deux joueurs sont là : on émet l'état de début de partie à toute la room
         this.server.to(`game:${data.gameId}`).emit('game_state', state);
       } else {
-        // En attente du 2ème joueur
         client.emit('game_state', state);
       }
     } catch (e: any) {
       if (e.status === 410) {
-        // TTL expiré → forfait
         try {
           await this.gameService.forfeitExpired(data.gameId, session.playerId);
           client.emit('game_over', { winnerId: session.playerId, reason: 'timeout' });
@@ -201,9 +271,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // ─── Helper ────────────────────────────────────────────────────────────────
+  // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private findOpponentSocket(
+  private findSocketIdByPlayerId(playerId: string): string | undefined {
+    for (const [socketId, session] of this.sessions) {
+      if (session.playerId === playerId) return socketId;
+    }
+  }
+
+  private findSocketByPlayerId(
     disconnectedPlayerId: string,
     gameId: string,
   ): { playerId: string } | undefined {

@@ -11,21 +11,21 @@ interface LeaderboardEntry {
 }
 
 function rankFromElo(elo: number): string {
-  if (elo >= 2000) return 'Legend'
-  if (elo >= 1800) return 'Diamond'
-  if (elo >= 1600) return 'Platinum'
-  if (elo >= 1400) return 'Gold'
-  if (elo >= 1200) return 'Silver'
+  if (elo >= 2000) return 'Légende'
+  if (elo >= 1800) return 'Diamant'
+  if (elo >= 1600) return 'Platine'
+  if (elo >= 1400) return 'Or'
+  if (elo >= 1200) return 'Argent'
   return 'Bronze'
 }
 
 function rankColor(rank: string): string {
   switch (rank) {
-    case 'Legend': return 'text-primary'
-    case 'Diamond': return 'text-blue-400'
-    case 'Platinum': return 'text-cyan-400'
-    case 'Gold': return 'text-yellow-400'
-    case 'Silver': return 'text-gray-300'
+    case 'Légende': return 'text-primary'
+    case 'Diamant': return 'text-blue-400'
+    case 'Platine': return 'text-cyan-400'
+    case 'Or': return 'text-yellow-400'
+    case 'Argent': return 'text-gray-300'
     default: return 'text-orange-400'
   }
 }
@@ -56,10 +56,10 @@ export default function Leaderboard() {
 
       <main className="ml-64 flex-1 relative min-h-screen">
         <header className="flex justify-between items-center w-full px-8 py-4 sticky top-0 z-50 bg-surface-container-lowest font-headline tracking-wider shadow-[0_4px_20px_rgba(51,34,111,0.08)]">
-          <div className="text-2xl font-bold uppercase tracking-tighter text-primary">Pantheon</div>
+          <div className="text-2xl font-bold uppercase tracking-tighter text-primary">Panthéon</div>
           <div className="flex items-center gap-2 text-sm text-on-surface-variant">
             <span className="material-symbols-outlined text-primary">groups</span>
-            {entries.length} divine souls
+            {entries.length} guerriers divins
           </div>
         </header>
 
@@ -92,7 +92,7 @@ export default function Leaderboard() {
           <section className="bg-surface-container-highest rounded-xl overflow-hidden shadow-xl">
             <div className="px-6 py-4 border-b border-outline-variant/20 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">emoji_events</span>
-              <h3 className="font-headline text-xl text-primary">Hall of Champions</h3>
+              <h3 className="font-headline text-xl text-primary">Hall des Champions</h3>
             </div>
 
             {loading ? (
@@ -100,7 +100,7 @@ export default function Leaderboard() {
                 <span className="material-symbols-outlined text-primary text-4xl animate-spin">autorenew</span>
               </div>
             ) : entries.length === 0 ? (
-              <p className="text-sm text-on-surface-variant text-center py-12">No players yet. Be the first!</p>
+              <p className="text-sm text-on-surface-variant text-center py-12">Aucun joueur pour l'instant. Sois le premier !</p>
             ) : (
               <div className="divide-y divide-outline-variant/10">
                 {entries.map((entry, idx) => {
@@ -119,7 +119,7 @@ export default function Leaderboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`font-bold text-sm ${isMe ? 'text-primary' : 'text-on-surface'}`}>
-                          {entry.username} {isMe && <span className="text-[10px] text-primary/60 font-normal">(you)</span>}
+                          {entry.username} {isMe && <span className="text-[10px] text-primary/60 font-normal">(toi)</span>}
                         </p>
                         <p className={`text-[10px] uppercase tracking-widest font-bold ${rankColor(rank)}`}>{rank}</p>
                       </div>

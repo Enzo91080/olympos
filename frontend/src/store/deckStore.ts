@@ -106,7 +106,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           ? d.cards.map((dc) => dc.card.id === card.id ? { ...dc, quantity: dc.quantity + 1 } : dc)
           : [...d.cards, { card, quantity: 1 }]
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 30 }
+        return { ...d, cards, isValid: total === 10 }
       }),
       currentDeck: (() => {
         const d = s.currentDeck
@@ -117,7 +117,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           ? d.cards.map((dc) => dc.card.id === card.id ? { ...dc, quantity: dc.quantity + 1 } : dc)
           : [...d.cards, { card, quantity: 1 }]
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 30 }
+        return { ...d, cards, isValid: total === 10 }
       })(),
     }))
     // Persist to backend
@@ -133,7 +133,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           .map((dc) => dc.card.id === cardId ? { ...dc, quantity: dc.quantity - 1 } : dc)
           .filter((dc) => dc.quantity > 0)
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 30 }
+        return { ...d, cards, isValid: total === 10 }
       }),
       currentDeck: (() => {
         const d = s.currentDeck
@@ -142,7 +142,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           .map((dc) => dc.card.id === cardId ? { ...dc, quantity: dc.quantity - 1 } : dc)
           .filter((dc) => dc.quantity > 0)
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 30 }
+        return { ...d, cards, isValid: total === 10 }
       })(),
     }))
     await deckService.removeCardFromDeck(deckId, cardId)

@@ -28,6 +28,7 @@ export interface BackendCard {
   effectText?: string | null
   rarity: string
   imageUrl?: string | null
+  spellTarget?: string | null
 }
 
 export interface SoloGameResponse {

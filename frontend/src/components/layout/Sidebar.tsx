@@ -3,19 +3,14 @@ import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
 import OracleModal from '../OracleModal'
 
-interface SidebarProps {
-  activeRoute?: string
-}
-
 const navItems = [
-  { label: 'Battlefront', icon: 'swords', to: '/dashboard' },
-  { label: 'Armory', icon: 'style', to: '/deck-builder' },
-  { label: 'Pantheon', icon: 'groups', to: '/leaderboard' },
-  { label: 'Treasury', icon: 'account_balance', to: '/shop' },
+  { label: 'Accueil', icon: 'swords', to: '/dashboard' },
+  { label: 'Armurerie', icon: 'style', to: '/deck-builder' },
+  { label: 'Panthéon', icon: 'groups', to: '/leaderboard' },
   { label: 'Archives', icon: 'history_edu', to: '/history' },
 ]
 
-export default function Sidebar({ activeRoute }: SidebarProps) {
+export default function Sidebar() {
   const { player, logout } = useAuthStore()
   const navigate = useNavigate()
   const [oracleOpen, setOracleOpen] = useState(false)
@@ -38,7 +33,7 @@ export default function Sidebar({ activeRoute }: SidebarProps) {
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              isActive || activeRoute === item.to
+              isActive
                 ? 'flex items-center gap-4 px-4 py-3 bg-[#2d1b69]/40 text-primary border-r-4 border-primary backdrop-blur-md transition-all duration-300'
                 : 'flex items-center gap-4 px-4 py-3 text-surface-variant hover:bg-surface-container-low hover:text-primary-container hover:translate-x-2 transition-all duration-300'
             }
@@ -55,8 +50,8 @@ export default function Sidebar({ activeRoute }: SidebarProps) {
             <span className="material-symbols-outlined text-primary text-xl">person</span>
           </div>
           <div>
-            <p className="text-sm font-bold text-primary">{player?.username || 'Hero'}</p>
-            <p className="text-[10px] text-surface-variant uppercase tracking-widest">Rank: {player?.rank || 'Mortal'}</p>
+            <p className="text-sm font-bold text-primary">{player?.username || 'Héros'}</p>
+            <p className="text-[10px] text-surface-variant uppercase tracking-widest">Rang : {player?.rank || 'Mortel'}</p>
           </div>
         </div>
 
@@ -73,7 +68,7 @@ export default function Sidebar({ activeRoute }: SidebarProps) {
             className="w-full flex items-center gap-3 px-4 py-2 text-surface-variant hover:text-error transition-colors"
           >
             <span className="material-symbols-outlined text-sm">logout</span>
-            <span className="text-xs uppercase tracking-widest">Logout</span>
+            <span className="text-xs uppercase tracking-widest">Déconnexion</span>
           </button>
         </div>
       </div>

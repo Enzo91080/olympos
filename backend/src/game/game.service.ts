@@ -32,8 +32,8 @@ export class GameService {
       this.prisma.deck.findUnique({ where: { id: deck2Id }, include: { deckCards: true } }),
     ]);
 
-    if (!deck1 || !deck1.isValid) throw new BadRequestException('Deck 1 is not valid (need 30 cards)');
-    if (!deck2 || !deck2.isValid) throw new BadRequestException('Deck 2 is not valid (need 30 cards)');
+    if (!deck1 || !deck1.isValid) throw new BadRequestException('Deck 1 is not valid (need 10 cards)');
+    if (!deck2 || !deck2.isValid) throw new BadRequestException('Deck 2 is not valid (need 10 cards)');
 
     const game = await this.prisma.game.create({
       data: { player1Id, player2Id, deck1Id, deck2Id, status: 'waiting' },
@@ -280,7 +280,7 @@ export class GameService {
       include: { deckCards: true },
     });
     if (!playerDeck) throw new NotFoundException('Deck not found');
-    if (!playerDeck.isValid) throw new BadRequestException('Your deck needs exactly 30 cards to play');
+    if (!playerDeck.isValid) throw new BadRequestException('Your deck needs exactly 10 cards to play');
 
     const game = await this.prisma.game.create({
       data: {
@@ -335,6 +335,52 @@ export class GameService {
 
     await this.finalizeGame(gameId, winnerId, 'solo');
     return { success: true };
+  }
+
+  // ─── Partie PvP ─────────────────────────────────────────────────────────────
+
+  async createPvpGame(player1Id: string, deck1Id: string, player2Id: string, deck2Id: string) {
+    const [deck1, deck2, p1, p2] = await Promise.all([
+      this.prisma.deck.findUnique({ where: { id: deck1Id }, include: { deckCards: true } }),
+      this.prisma.deck.findUnique({ where: { id: deck2Id }, include: { deckCards: true } }),
+      this.prisma.player.findUnique({ where: { id: player1Id }, select: { username: true } }),
+      this.prisma.player.findUnique({ where: { id: player2Id }, select: { username: true } }),
+    ]);
+
+    if (!deck1 || !deck1.isValid) throw new BadRequestException('Deck joueur 1 invalide');
+    if (!deck2 || !deck2.isValid) throw new BadRequestException('Deck joueur 2 invalide');
+
+    const game = await this.prisma.game.create({
+      data: { player1Id, player2Id, deck1Id, deck2Id, status: 'waiting' },
+    });
+
+    const deck1CardIds = deck1.deckCards.flatMap((dc) => Array(dc.quantity).fill(dc.cardId));
+    const deck2CardIds = deck2.deckCards.flatMap((dc) => Array(dc.quantity).fill(dc.cardId));
+
+    const state = await this.engine.initGameState(game.id, player1Id, deck1CardIds, player2Id, deck2CardIds);
+    await this.saveState(game.id, state);
+
+    const allIds = [...new Set([...deck1CardIds, ...deck2CardIds])];
+    const cards = await this.prisma.card.findMany({ where: { id: { in: allIds } } });
+    const cardMap = Object.fromEntries(cards.map((c) => [c.id, c]));
+
+    return {
+      gameId: game.id,
+      player1: {
+        id: player1Id,
+        username: p1?.username ?? 'Joueur 1',
+        isFirstPlayer: true,
+        hand: state.player1.hand.map((id) => cardMap[id]),
+        deckRemaining: state.player1.deckRemaining.map((id) => cardMap[id]),
+      },
+      player2: {
+        id: player2Id,
+        username: p2?.username ?? 'Joueur 2',
+        isFirstPlayer: false,
+        hand: state.player2.hand.map((id) => cardMap[id]),
+        deckRemaining: state.player2.deckRemaining.map((id) => cardMap[id]),
+      },
+    };
   }
 
   // ─── Forfait sur TTL expiré ─────────────────────────────────────────────────

@@ -12,8 +12,10 @@ export interface GameCard {
   effectText?: string
   rarity?: string
   imageUrl?: string
+  spellTarget?: string
   hasAttacked?: boolean
   isSummoningSick?: boolean
+  isEquipped?: boolean
 }
 
 export interface PlayerState {
@@ -35,6 +37,17 @@ export interface BattleLogEntry {
   isEnemy?: boolean
 }
 
+export interface PvpMatchedData {
+  gameId: string
+  opponentId: string
+  opponentUsername: string
+  isFirstPlayer: boolean
+  player: {
+    hand: BackendCard[]
+    deckRemaining: BackendCard[]
+  }
+}
+
 interface GameState {
   gameId: string | null
   botId: string | null
@@ -49,10 +62,18 @@ interface GameState {
   winner: string | null
   selectedHandIndex: number | null
   selectedFieldIndex: number | null
+  mode: 'solo' | 'pvp'
+  pvpMyPlayerId: string | null
+  cardLookup: Record<string, GameCard>
 
   startGame: (data: SoloGameResponse, authPlayerId: string, authUsername: string) => void
+  startPvpGame: (data: PvpMatchedData, myPlayerId: string, myUsername: string, cardLookup: Record<string, GameCard>) => void
+  applyServerState: (serverState: any) => void
+  applyGameOver: (winnerId: string) => void
+  clearSelection: () => void
   selectHandCard: (index: number) => void
   playCard: (handIndex: number, slotIndex: number) => void
+  castSpell: (handIndex: number, target: number | 'hero' | null) => void
   selectFieldCard: (index: number) => void
   attackEnemy: (playerFieldIndex: number, target: number | 'hero') => void
   endTurn: () => void
@@ -61,7 +82,7 @@ interface GameState {
 
 const makeId = () => Math.random().toString(36).slice(2, 9)
 
-function toGameCard(card: BackendCard): GameCard {
+export function toGameCard(card: BackendCard): GameCard {
   return {
     id: card.id,
     instanceId: makeId(),
@@ -73,6 +94,7 @@ function toGameCard(card: BackendCard): GameCard {
     effectText: card.effectText ?? undefined,
     rarity: card.rarity,
     imageUrl: card.imageUrl ?? undefined,
+    spellTarget: card.spellTarget ?? undefined,
     hasAttacked: false,
     isSummoningSick: false,
   }
@@ -96,7 +118,7 @@ const EMPTY_PLAYER: PlayerState = {
 function simulateEnemyTurn(
   state: Pick<GameState, 'enemy' | 'player' | 'battleLog' | 'turn' | 'enemyDeckRemaining'>,
 ): Partial<GameState> {
-  const newMaxMana = Math.min(Math.ceil(state.turn / 2), 10)
+  const newMaxMana = Math.min(state.turn - 1, 10)
   let enemy = {
     ...state.enemy,
     mana: newMaxMana,
@@ -108,36 +130,53 @@ function simulateEnemyTurn(
   let logs = [...state.battleLog]
   let enemyDeckRemaining = [...state.enemyDeckRemaining]
 
-  // Draw a card
+  // Draw a card — fatigue si deck vide
   if (enemyDeckRemaining.length > 0) {
     const drawn = { ...enemyDeckRemaining[0], instanceId: makeId(), hasAttacked: false, isSummoningSick: true }
     enemy.hand = [...enemy.hand, drawn]
     enemyDeckRemaining = enemyDeckRemaining.slice(1)
-    enemy.deckSize = enemyDeckRemaining.length + enemy.hand.length
+    enemy.deckSize = enemyDeckRemaining.length
+  } else if (enemy.hand.length === 0 && enemy.field.every(c => c === null)) {
+    // Plus de deck, plus de main, plus de terrain → défaite immédiate
+    return {
+      player: state.player,
+      enemy: { ...enemy, hp: 0 },
+      enemyDeckRemaining,
+      battleLog: addLog(state.battleLog, { playerName: enemy.username, action: 'Plus aucune carte — défaite !', isEnemy: true }),
+      winner: state.player.username,
+      status: 'finished',
+      isPlayerTurn: true,
+      selectedHandIndex: null,
+      selectedFieldIndex: null,
+    }
   }
 
   // Reset board canAttack (new turn)
   enemy.field = enemy.field.map((c) => c ? { ...c, hasAttacked: false, isSummoningSick: false } : null)
 
-  // Play a creature from hand if affordable and board not full
-  const creatureInHand = enemy.hand.find(
-    (c) => c.cardType === 'creature' && c.manaCost <= enemy.mana
-  )
-  if (creatureInHand) {
-    const emptySlot = enemy.field.findIndex((s) => s === null)
-    if (emptySlot !== -1) {
-      const newField = [...enemy.field]
-      newField[emptySlot] = { ...creatureInHand, isSummoningSick: true, hasAttacked: false }
-      enemy.field = newField
-      enemy.hand = enemy.hand.filter((c) => c.instanceId !== creatureInHand.instanceId)
-      enemy.mana -= creatureInHand.manaCost
-      logs = addLog(logs, { playerName: enemy.username, action: `Summoned ${creatureInHand.name}`, isEnemy: true })
+  // Play a creature from hand — bot skips 30% of the time
+  if (Math.random() > 0.30) {
+    const creatureInHand = enemy.hand.find(
+      (c) => c.cardType === 'creature' && c.manaCost <= enemy.mana
+    )
+    if (creatureInHand) {
+      const emptySlot = enemy.field.findIndex((s) => s === null)
+      if (emptySlot !== -1) {
+        const newField = [...enemy.field]
+        newField[emptySlot] = { ...creatureInHand, isSummoningSick: true, hasAttacked: false }
+        enemy.field = newField
+        enemy.hand = enemy.hand.filter((c) => c.instanceId !== creatureInHand.instanceId)
+        enemy.mana -= creatureInHand.manaCost
+        logs = addLog(logs, { playerName: enemy.username, action: `Invoque ${creatureInHand.name}`, isEnemy: true })
+      }
     }
   }
 
-  // Attack with non-sick field cards
-  const attackers = enemy.field.filter((c): c is GameCard => c !== null && !c.isSummoningSick && !c.hasAttacked)
+  // Attack with at most 1 creature per turn — 40% miss chance
+  const allAttackers = enemy.field.filter((c): c is GameCard => c !== null && !c.isSummoningSick && !c.hasAttacked)
+  const attackers = allAttackers.slice(0, 1)
   for (const attacker of attackers) {
+    if (Math.random() < 0.40) continue // bot misses 40% of its attacks
     const playerCreature = player.field.find((c): c is GameCard => c !== null)
     if (playerCreature) {
       const newDef = (playerCreature.defense ?? 0) - (attacker.attack ?? 0)
@@ -158,8 +197,8 @@ function simulateEnemyTurn(
       logs = addLog(logs, {
         playerName: enemy.username,
         action: newDef <= 0
-          ? `${attacker.name} destroyed ${playerCreature.name}`
-          : `${attacker.name} attacked ${playerCreature.name}`,
+          ? `${attacker.name} détruit ${playerCreature.name}`
+          : `${attacker.name} attaque ${playerCreature.name}`,
         isEnemy: true,
       })
     } else {
@@ -170,7 +209,7 @@ function simulateEnemyTurn(
       const ef = [...enemy.field]
       ef[eidx] = { ...attacker, hasAttacked: true }
       enemy.field = ef
-      logs = addLog(logs, { playerName: enemy.username, action: `${attacker.name} attacked your hero for ${dmg}`, isEnemy: true })
+      logs = addLog(logs, { playerName: enemy.username, action: `${attacker.name} inflige ${dmg} dégâts à ton héros`, isEnemy: true })
     }
   }
 
@@ -203,12 +242,31 @@ export const useGameStore = create<GameState>((set, get) => ({
   winner: null,
   selectedHandIndex: null,
   selectedFieldIndex: null,
+  mode: 'solo',
+  pvpMyPlayerId: null,
+  cardLookup: {},
 
   startGame: (data, authPlayerId, authUsername) => {
-    const playerHand = data.player.hand.map(toGameCard)
-    const playerDeck = data.player.deckRemaining.map(toGameCard)
+    let playerHand = data.player.hand.map(toGameCard)
+    let playerDeck = data.player.deckRemaining.map(toGameCard)
     const botHand = data.bot.hand.map(toGameCard)
     const botDeck = data.bot.deckRemaining.map(toGameCard)
+
+    // Guarantee at least one creature with manaCost ≤ 1 in starting hand
+    // so the player always has something to do on turn 1
+    const hasOneManaCreature = playerHand.some(c => c.manaCost <= 1 && c.cardType === 'creature')
+    if (!hasOneManaCreature) {
+      const deckIdx = playerDeck.findIndex(c => c.manaCost <= 1 && c.cardType === 'creature')
+      if (deckIdx !== -1) {
+        const replacement = { ...playerDeck[deckIdx], instanceId: makeId() }
+        // Swap out the most expensive hand card
+        const handIdx = playerHand.reduce((max, c, i) => c.manaCost > playerHand[max].manaCost ? i : max, 0)
+        playerDeck = [...playerDeck]
+        playerDeck[deckIdx] = playerHand[handIdx]
+        playerHand = [...playerHand]
+        playerHand[handIdx] = replacement
+      }
+    }
 
     set({
       gameId: data.gameId,
@@ -221,11 +279,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedFieldIndex: null,
       playerDeckRemaining: playerDeck,
       enemyDeckRemaining: botDeck,
-      battleLog: [{ id: makeId(), playerName: 'System', action: 'Battle begins! May the gods favor you.', isEnemy: false }],
+      battleLog: [{ id: makeId(), playerName: 'Système', action: 'La bataille commence ! Que les dieux te favorisent.', isEnemy: false }],
       player: {
         id: authPlayerId,
         username: authUsername,
-        hp: 20,
+        hp: 25,
         mana: 1,
         maxMana: 1,
         deckSize: playerDeck.length,
@@ -235,7 +293,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       enemy: {
         id: data.botId,
         username: data.botUsername,
-        hp: 20,
+        hp: 15,
         mana: 0,
         maxMana: 0,
         deckSize: botDeck.length,
@@ -252,33 +310,95 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   playCard: (handIndex, slotIndex) => {
-    const { player, battleLog, isPlayerTurn, playerDeckRemaining } = get()
+    const { player, battleLog, isPlayerTurn } = get()
     if (!isPlayerTurn) return
     const card = player.hand[handIndex]
-    if (!card || player.field[slotIndex] !== null) return
+    if (!card || card.cardType !== 'creature') return
+    if (player.field[slotIndex] !== null) return
     if (card.manaCost > player.mana) return
 
     const newHand = player.hand.filter((_, i) => i !== handIndex)
     const newField = [...player.field]
+    newField[slotIndex] = { ...card, hasAttacked: false, isSummoningSick: true }
 
-    // Only creatures go on the field; spells/artifacts have instant effects
-    if (card.cardType === 'creature') {
-      newField[slotIndex] = { ...card, hasAttacked: false, isSummoningSick: true }
-    }
-
-    const newMana = player.mana - card.manaCost
     const logs = addLog(battleLog, {
       playerName: player.username,
-      action: card.cardType === 'creature' ? `Summoned ${card.name}` : `Cast ${card.name}`,
+      action: `Invoque ${card.name}`,
       detail: card.effectText ?? undefined,
     })
 
     set({
-      player: { ...player, hand: newHand, field: newField, mana: newMana },
+      player: { ...player, hand: newHand, field: newField, mana: player.mana - card.manaCost },
       battleLog: logs,
       selectedHandIndex: null,
       selectedFieldIndex: null,
     })
+  },
+
+  castSpell: (handIndex, target) => {
+    const { player, enemy, battleLog, isPlayerTurn } = get()
+    if (!isPlayerTurn) return
+    const card = player.hand[handIndex]
+    if (!card || card.manaCost > player.mana) return
+
+    const newHand = player.hand.filter((_, i) => i !== handIndex)
+    let newPlayer = { ...player, hand: newHand, mana: player.mana - card.manaCost }
+    let newEnemy = { ...enemy, field: [...enemy.field] }
+    let logs = battleLog
+    const st = card.spellTarget
+    const power = card.attack ?? 0       // puissance offensive (dégâts)
+    const bonusDef = card.defense ?? 0   // puissance défensive (soin / défense)
+
+    if (st === 'equip' && typeof target === 'number') {
+      // Artefact équipé → créature alliée ciblée (doit passer avant le check générique number)
+      const ally = newPlayer.field[target]
+      if (ally) {
+        const pf = [...newPlayer.field]
+        pf[target] = { ...ally, attack: (ally.attack ?? 0) + power, defense: (ally.defense ?? 0) + bonusDef, isSummoningSick: false, isEquipped: true }
+        newPlayer = { ...newPlayer, field: pf }
+        logs = addLog(logs, { playerName: player.username, action: `${card.name} équipe ${ally.name} (+${power || 0}/+${bonusDef || 0})`, detail: card.effectText ?? undefined })
+      }
+    } else if (target === 'hero') {
+      // Sort ciblé → héros ennemi
+      newEnemy = { ...newEnemy, hp: Math.max(0, newEnemy.hp - power) }
+      logs = addLog(logs, { playerName: player.username, action: `${card.name} inflige ${power} dégâts à ${enemy.username}`, detail: card.effectText ?? undefined })
+    } else if (typeof target === 'number') {
+      // Sort ciblé → créature ennemie
+      const targetCard = enemy.field[target]
+      if (!targetCard) return
+      const newDef = (targetCard.defense ?? 0) - power
+      const ef = [...enemy.field]
+      ef[target] = newDef <= 0 ? null : { ...targetCard, defense: newDef }
+      newEnemy = { ...newEnemy, field: ef }
+      logs = addLog(logs, { playerName: player.username, action: newDef <= 0 ? `${card.name} détruit ${targetCard.name}` : `${card.name} inflige ${power} dégâts à ${targetCard.name}`, detail: card.effectText ?? undefined })
+    } else if (st === 'aoe_enemy') {
+      // Dégâts à toutes les créatures ennemies (power = dégâts par créature)
+      const ef = enemy.field.map(c => { if (!c) return null; const nd = (c.defense ?? 0) - power; return nd <= 0 ? null : { ...c, defense: nd } })
+      newEnemy = { ...newEnemy, field: ef }
+      logs = addLog(logs, { playerName: player.username, action: `${card.name} inflige ${power} dégâts à toutes les créatures ennemies`, detail: card.effectText ?? undefined })
+    } else if (st === 'self') {
+      // Soin / buff joueur (attack = soin, defense = bonus défense pour créatures)
+      if (power > 0) newPlayer = { ...newPlayer, hp: Math.min(20, newPlayer.hp + power) }
+      if (bonusDef > 0) {
+        const pf = newPlayer.field.map(c => c ? { ...c, defense: (c.defense ?? 0) + bonusDef } : null)
+        newPlayer = { ...newPlayer, field: pf }
+      }
+      logs = addLog(logs, { playerName: player.username, action: `${card.name} joué`, detail: card.effectText ?? undefined })
+    } else if (st === 'summon') {
+      // Invocation (attack / defense = stats de la créature invoquée)
+      const slot = newPlayer.field.findIndex(s => s === null)
+      if (slot !== -1) {
+        const summoned: GameCard = { id: makeId(), instanceId: makeId(), name: 'Serviteur', cardType: 'creature', manaCost: 1, attack: power || 1, defense: bonusDef || 2, rarity: 'common', hasAttacked: false, isSummoningSick: true }
+        const pf = [...newPlayer.field]; pf[slot] = summoned
+        newPlayer = { ...newPlayer, field: pf }
+        logs = addLog(logs, { playerName: player.username, action: `${card.name} invoque un ${summoned.name} (${summoned.attack}/${summoned.defense})`, detail: card.effectText ?? undefined })
+      }
+    } else {
+      logs = addLog(logs, { playerName: player.username, action: `${card.name} joué`, detail: card.effectText ?? undefined })
+    }
+
+    const winner = newEnemy.hp <= 0 ? player.username : null
+    set({ player: newPlayer, enemy: newEnemy, battleLog: logs, winner, status: winner ? 'finished' : 'in_progress', selectedHandIndex: null, selectedFieldIndex: null })
   },
 
   selectFieldCard: (index) => {
@@ -302,7 +422,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     if (target === 'hero') {
       newEnemy.hp = Math.max(0, enemy.hp - dmg)
-      logs = addLog(logs, { playerName: player.username, action: `${attacker.name} dealt ${dmg} damage to ${enemy.username}` })
+      logs = addLog(logs, { playerName: player.username, action: `${attacker.name} inflige ${dmg} dégâts à ${enemy.username}` })
     } else {
       const targetCard = enemy.field[target]
       if (!targetCard) return
@@ -323,8 +443,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       logs = addLog(logs, {
         playerName: player.username,
         action: newTargetDef <= 0
-          ? `${attacker.name} destroyed ${targetCard.name}`
-          : `${attacker.name} attacked ${targetCard.name}`,
+          ? `${attacker.name} détruit ${targetCard.name}`
+          : `${attacker.name} attaque ${targetCard.name}`,
       })
     }
 
@@ -368,7 +488,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       c ? { ...c, hasAttacked: false, isSummoningSick: false } : null
     )
 
-    const logs = addLog(state.battleLog, { playerName: state.player.username, action: 'Ended their turn' })
+    const logs = addLog(state.battleLog, { playerName: state.player.username, action: 'Fin du tour' })
 
     set({
       isPlayerTurn: false,
@@ -400,6 +520,132 @@ export const useGameStore = create<GameState>((set, get) => ({
     }, 1200)
   },
 
+  clearSelection: () => set({ selectedHandIndex: null, selectedFieldIndex: null }),
+
+  startPvpGame: (data, myPlayerId, myUsername, cardLookup) => {
+    const playerHand = data.player.hand.map(toGameCard)
+    const playerDeck = data.player.deckRemaining.map(toGameCard)
+    set({
+      mode: 'pvp',
+      pvpMyPlayerId: myPlayerId,
+      cardLookup,
+      gameId: data.gameId,
+      botId: data.opponentId,
+      status: 'in_progress',
+      turn: 1,
+      isPlayerTurn: data.isFirstPlayer,
+      winner: null,
+      selectedHandIndex: null,
+      selectedFieldIndex: null,
+      playerDeckRemaining: playerDeck,
+      enemyDeckRemaining: [],
+      battleLog: [{ id: makeId(), playerName: 'Système', action: `Partie contre ${data.opponentUsername} — que les dieux te favorisent !`, isEnemy: false }],
+      player: {
+        id: myPlayerId,
+        username: myUsername,
+        hp: 20,
+        mana: data.isFirstPlayer ? 1 : 0,
+        maxMana: data.isFirstPlayer ? 1 : 0,
+        deckSize: playerDeck.length,
+        field: [null, null, null, null, null, null],
+        hand: playerHand,
+      },
+      enemy: {
+        id: data.opponentId,
+        username: data.opponentUsername,
+        hp: 20,
+        mana: 0,
+        maxMana: 0,
+        deckSize: 0,
+        field: [null, null, null, null, null, null],
+        hand: [],
+      },
+    })
+  },
+
+  applyServerState: (serverState: any) => {
+    const { pvpMyPlayerId, cardLookup, player: curPlayer, enemy: curEnemy } = get()
+    if (!pvpMyPlayerId) return
+    if (serverState.status === 'waiting_players') return
+
+    const isP1 = serverState.player1.playerId === pvpMyPlayerId
+    const myServer = isP1 ? serverState.player1 : serverState.player2
+    const oppServer = isP1 ? serverState.player2 : serverState.player1
+
+    const boardToField = (board: any[]): (GameCard | null)[] => {
+      const field: (GameCard | null)[] = [null, null, null, null, null, null]
+      board.slice(0, 6).forEach((c: any, i: number) => {
+        const base = cardLookup[c.cardId]
+        field[i] = {
+          id: c.cardId,
+          instanceId: c.instanceId,
+          name: c.name,
+          cardType: 'creature',
+          manaCost: base?.manaCost ?? 0,
+          attack: c.attack,
+          defense: c.defense,
+          effectText: base?.effectText,
+          rarity: base?.rarity ?? 'common',
+          imageUrl: base?.imageUrl,
+          hasAttacked: !c.canAttack,
+          isSummoningSick: !c.canAttack,
+        }
+      })
+      return field
+    }
+
+    const myHand: GameCard[] = myServer.hand.map((cardId: string, i: number) => {
+      const base = cardLookup[cardId]
+      return base
+        ? { ...base, instanceId: `${cardId}-${i}` }
+        : { id: cardId, instanceId: `${cardId}-${i}`, name: '?', cardType: 'creature', manaCost: 0 }
+    })
+
+    const isPlayerTurn = serverState.currentTurnPlayerId === pvpMyPlayerId
+
+    const winner = serverState.status === 'finished' && serverState.winnerId
+      ? (serverState.winnerId === pvpMyPlayerId ? curPlayer.username : curEnemy.username)
+      : null
+
+    set({
+      turn: serverState.turnNumber,
+      isPlayerTurn,
+      status: serverState.status === 'finished' ? 'finished' : 'in_progress',
+      winner,
+      selectedHandIndex: null,
+      selectedFieldIndex: null,
+      player: {
+        ...curPlayer,
+        hp: myServer.hp,
+        mana: myServer.mana,
+        maxMana: myServer.maxMana,
+        hand: myHand,
+        field: boardToField(myServer.board),
+        deckSize: myServer.deckRemaining.length,
+      },
+      enemy: {
+        ...curEnemy,
+        hp: oppServer.hp,
+        mana: oppServer.mana,
+        maxMana: oppServer.maxMana,
+        field: boardToField(oppServer.board),
+        deckSize: oppServer.deckRemaining.length,
+        hand: [],
+      },
+    })
+  },
+
+  applyGameOver: (winnerId: string) => {
+    const { pvpMyPlayerId, player, enemy } = get()
+    set({
+      status: 'finished',
+      winner: winnerId === pvpMyPlayerId ? player.username : enemy.username,
+      isPlayerTurn: false,
+      selectedHandIndex: null,
+      selectedFieldIndex: null,
+    })
+  },
+
   reset: () => set({
     gameId: null,
     botId: null,
@@ -414,5 +660,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     winner: null,
     selectedHandIndex: null,
     selectedFieldIndex: null,
+    mode: 'solo',
+    pvpMyPlayerId: null,
+    cardLookup: {},
   }),
 }))

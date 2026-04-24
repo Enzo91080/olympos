@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDeckStore } from '../store/deckStore'
 import type { Card } from '../store/deckStore'
 import { useAuthStore } from '../store/authStore'
+import { deckService } from '../services/deckService'
 
 const rarityColors: Record<string, string> = {
   common: 'bg-on-surface-variant/30',
@@ -11,14 +12,52 @@ const rarityColors: Record<string, string> = {
   legendary: 'bg-primary',
 }
 
+// Sélectionne 10 cartes équilibrées depuis toutes les cartes disponibles
+function selectRecommendedCards(allCards: Card[]): { cardId: string; quantity: number }[] {
+  const creatures = [...allCards.filter(c => c.cardType === 'creature')].sort((a, b) => a.manaCost - b.manaCost)
+  const spells   = [...allCards.filter(c => c.cardType === 'spell')].sort((a, b) => a.manaCost - b.manaCost)
+  const artifacts = [...allCards.filter(c => c.cardType === 'artifact')].sort((a, b) => a.manaCost - b.manaCost)
+
+  const picks: { cardId: string; quantity: number }[] = []
+  let total = 0
+
+  const add = (card: Card, qty: number) => {
+    if (total + qty > 10) qty = 10 - total
+    if (qty <= 0) return
+    picks.push({ cardId: card.id, quantity: qty })
+    total += qty
+  }
+
+  // 3 créatures pas chères (1-2 mana) × 2
+  creatures.filter(c => c.manaCost <= 2).slice(0, 3).forEach(c => add(c, 2))
+  // 1 sort × 2
+  spells.slice(0, 1).forEach(c => add(c, 2))
+  // 1 artefact × 1
+  artifacts.slice(0, 1).forEach(c => add(c, 1))
+
+  // Compléter jusqu'à 10 si besoin
+  if (total < 10) {
+    creatures.filter(c => c.manaCost <= 3).forEach(c => {
+      if (total >= 10) return
+      if (!picks.find(p => p.cardId === c.id)) add(c, Math.min(2, 10 - total))
+    })
+  }
+
+  return picks
+}
+
 export default function DeckBuilder() {
   const navigate = useNavigate()
   const { player } = useAuthStore()
   const {
     decks, currentDeck, allCards, loading,
     selectDeck, createDeck, renameDeck, deleteDeck,
-    addCardToDeck, removeCardFromDeck,
+    addCardToDeck, removeCardFromDeck, loadDecksAndCards, refreshDeck,
   } = useDeckStore()
+
+  useEffect(() => {
+    loadDecksAndCards()
+  }, [])
 
   const [filterMana, setFilterMana] = useState<number | null>(null)
   const [filterType, setFilterType] = useState('All Types')
@@ -28,6 +67,7 @@ export default function DeckBuilder() {
   const [renaming, setRenaming] = useState(false)
   const [renamingValue, setRenamingValue] = useState('')
   const [saving, setSaving] = useState(false)
+  const [buildingStarter, setBuildingStarter] = useState(false)
 
   const deckTotal = currentDeck?.cards.reduce((acc, dc) => acc + dc.quantity, 0) ?? 0
 
@@ -42,7 +82,7 @@ export default function DeckBuilder() {
     if (!currentDeck) return
     const existing = currentDeck.cards.find((dc) => dc.card.id === card.id)
     if (existing && existing.quantity >= 2) return
-    if (deckTotal >= 30) return
+    if (deckTotal >= 10) return
     await addCardToDeck(currentDeck.id, card)
   }
 
@@ -70,8 +110,25 @@ export default function DeckBuilder() {
 
   const handleDelete = async () => {
     if (!currentDeck) return
-    if (!confirm(`Delete "${currentDeck.name}"?`)) return
+    if (!confirm(`Supprimer "${currentDeck.name}" ?`)) return
     await deleteDeck(currentDeck.id)
+  }
+
+  const handleCreateStarterDeck = async () => {
+    if (allCards.length === 0) return
+    setBuildingStarter(true)
+    try {
+      // Créer un nouveau deck
+      const deck = await createDeck('Deck de démarrage')
+      // Sélectionner 30 cartes équilibrées
+      const picks = selectRecommendedCards(allCards)
+      // Envoyer toutes les requêtes en parallèle
+      await Promise.all(picks.map(p => deckService.addCardToDeck(deck.id, p.cardId, p.quantity)))
+      // Recharger le deck depuis le serveur pour l'état final
+      await refreshDeck(deck.id)
+    } finally {
+      setBuildingStarter(false)
+    }
   }
 
   return (
@@ -82,7 +139,7 @@ export default function DeckBuilder() {
           <button onClick={() => navigate('/dashboard')} className="text-primary-container hover:text-primary transition-colors">
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <span className="text-2xl font-bold uppercase tracking-tighter text-primary">Armory</span>
+          <span className="text-2xl font-bold uppercase tracking-tighter text-primary">Armurerie</span>
 
           {/* Deck selector */}
           <div className="flex items-center gap-2 ml-4">
@@ -91,30 +148,42 @@ export default function DeckBuilder() {
               value={currentDeck?.id ?? ''}
               onChange={(e) => selectDeck(e.target.value)}
             >
-              {decks.length === 0 && <option value="">No decks</option>}
+              {decks.length === 0 && <option value="">Aucun deck</option>}
               {decks.map((d) => (
-                <option key={d.id} value={d.id}>{d.name} ({d.cards.reduce((a, dc) => a + dc.quantity, 0)}/30)</option>
+                <option key={d.id} value={d.id}>{d.name} ({d.cards.reduce((a, dc) => a + dc.quantity, 0)}/10)</option>
               ))}
             </select>
             <button
               onClick={() => setShowNewDeck(true)}
               className="px-3 py-1.5 bg-primary text-on-primary text-xs font-bold uppercase tracking-widest rounded-lg hover:bg-primary-fixed-dim transition-all"
             >
-              + New
+              + Nouveau
+            </button>
+            <button
+              onClick={handleCreateStarterDeck}
+              disabled={buildingStarter || allCards.length === 0}
+              title="Crée automatiquement un deck de 10 cartes équilibré pour bien commencer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-on-secondary text-xs font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {buildingStarter ? (
+                <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Création...</>
+              ) : (
+                <><span className="material-symbols-outlined text-sm">auto_fix_high</span> Deck de démarrage</>
+              )}
             </button>
             {currentDeck && (
               <>
                 <button
                   onClick={() => { setRenaming(true); setRenamingValue(currentDeck.name) }}
                   className="p-1.5 text-primary-container hover:text-primary transition-colors"
-                  title="Rename"
+                  title="Renommer"
                 >
                   <span className="material-symbols-outlined text-sm">edit</span>
                 </button>
                 <button
                   onClick={handleDelete}
                   className="p-1.5 text-error/50 hover:text-error transition-colors"
-                  title="Delete"
+                  title="Supprimer"
                 >
                   <span className="material-symbols-outlined text-sm">delete</span>
                 </button>
@@ -133,7 +202,7 @@ export default function DeckBuilder() {
               <span className="material-symbols-outlined text-sm mr-2">
                 {currentDeck.isValid ? 'check_circle' : 'error'}
               </span>
-              {currentDeck.isValid ? 'Valid' : `${30 - deckTotal} cards remaining`}
+              {currentDeck.isValid ? 'Valide' : `${10 - deckTotal} cartes restantes`}
             </div>
           )}
           <div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center border border-primary/30">
@@ -146,11 +215,11 @@ export default function DeckBuilder() {
       {showNewDeck && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-surface-container-low rounded-xl p-8 w-full max-w-sm border border-outline-variant/20 shadow-2xl">
-            <h3 className="font-headline text-xl text-primary mb-6">New Deck</h3>
+            <h3 className="font-headline text-xl text-primary mb-6">Nouveau deck</h3>
             <input
               autoFocus
               className="w-full bg-surface-container-lowest border-0 rounded-lg py-3 px-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary/50 mb-4"
-              placeholder="Deck name..."
+              placeholder="Nom du deck..."
               value={newDeckName}
               onChange={(e) => setNewDeckName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreateDeck()}
@@ -161,10 +230,10 @@ export default function DeckBuilder() {
                 disabled={saving || !newDeckName.trim()}
                 className="flex-1 py-2.5 bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold uppercase tracking-widest text-sm rounded-lg hover:shadow-[0_0_15px_rgba(230,195,100,0.4)] transition-all disabled:opacity-50"
               >
-                {saving ? 'Creating...' : 'Create'}
+                {saving ? 'Création...' : 'Créer'}
               </button>
               <button onClick={() => setShowNewDeck(false)} className="px-4 py-2.5 border border-outline-variant/30 text-on-surface-variant rounded-lg hover:bg-surface-container-high transition-all">
-                Cancel
+                Annuler
               </button>
             </div>
           </div>
@@ -175,7 +244,7 @@ export default function DeckBuilder() {
       {renaming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-surface-container-low rounded-xl p-8 w-full max-w-sm border border-outline-variant/20 shadow-2xl">
-            <h3 className="font-headline text-xl text-primary mb-6">Rename Deck</h3>
+            <h3 className="font-headline text-xl text-primary mb-6">Renommer le deck</h3>
             <input
               autoFocus
               className="w-full bg-surface-container-lowest border-0 rounded-lg py-3 px-4 text-on-surface placeholder:text-outline/50 focus:ring-1 focus:ring-primary/50 mb-4"
@@ -185,10 +254,10 @@ export default function DeckBuilder() {
             />
             <div className="flex gap-3">
               <button onClick={handleRename} disabled={saving} className="flex-1 py-2.5 bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold uppercase tracking-widest text-sm rounded-lg transition-all disabled:opacity-50">
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? 'Sauvegarde...' : 'Sauvegarder'}
               </button>
               <button onClick={() => setRenaming(false)} className="px-4 py-2.5 border border-outline-variant/30 text-on-surface-variant rounded-lg hover:bg-surface-container-high transition-all">
-                Cancel
+                Annuler
               </button>
             </div>
           </div>
@@ -200,24 +269,24 @@ export default function DeckBuilder() {
         <section className="w-80 bg-surface-container-lowest flex flex-col shadow-xl border-r border-outline-variant/10 shrink-0">
           <div className="p-6 border-b border-outline-variant/20">
             <div className="flex justify-between items-end mb-3">
-              <h2 className="font-headline text-xl text-primary">{currentDeck?.name ?? 'Select a deck'}</h2>
-              <span className="text-sm font-bold text-on-surface-variant">{deckTotal} / 30</span>
+              <h2 className="font-headline text-xl text-primary">{currentDeck?.name ?? 'Sélectionner un deck'}</h2>
+              <span className="text-sm font-bold text-on-surface-variant">{deckTotal} / 10</span>
             </div>
             <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
-              <div className="h-full bg-secondary relative transition-all duration-500" style={{ width: `${(deckTotal / 30) * 100}%` }}>
+              <div className="h-full bg-secondary relative transition-all duration-500" style={{ width: `${(deckTotal / 10) * 100}%` }}>
                 <div className="absolute right-0 top-0 h-full w-2 bg-white/40 blur-sm animate-pulse"></div>
               </div>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
-            {loading && <p className="text-on-surface-variant text-sm text-center py-4">Loading...</p>}
+            {loading && <p className="text-on-surface-variant text-sm text-center py-4">Chargement...</p>}
             {!currentDeck && !loading && (
               <div className="text-center py-8">
                 <span className="material-symbols-outlined text-primary-container text-4xl">style</span>
-                <p className="text-sm text-on-surface-variant mt-2">Create a deck to start</p>
+                <p className="text-sm text-on-surface-variant mt-2">Créez un deck pour commencer</p>
                 <button onClick={() => setShowNewDeck(true)} className="mt-4 px-4 py-2 bg-primary text-on-primary text-xs font-bold uppercase tracking-widest rounded-lg">
-                  New Deck
+                  Nouveau deck
                 </button>
               </div>
             )}
@@ -239,10 +308,10 @@ export default function DeckBuilder() {
                 </div>
               </div>
             ))}
-            {currentDeck && deckTotal < 30 && (
+            {currentDeck && deckTotal < 10 && (
               <div className="p-3 rounded border border-dashed border-outline-variant/30 flex items-center justify-center mt-2">
                 <span className="text-[10px] uppercase tracking-widest text-outline">
-                  {30 - deckTotal} more card{30 - deckTotal > 1 ? 's' : ''} needed
+                  {10 - deckTotal} carte{10 - deckTotal > 1 ? 's' : ''} manquante{10 - deckTotal > 1 ? 's' : ''}
                 </span>
               </div>
             )}
@@ -274,10 +343,10 @@ export default function DeckBuilder() {
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
               >
-                <option>All Types</option>
-                <option>Creature</option>
-                <option>Spell</option>
-                <option>Artifact</option>
+                <option value="All Types">Tous les types</option>
+                <option value="Creature">Créature</option>
+                <option value="Spell">Sort</option>
+                <option value="Artifact">Artefact</option>
               </select>
             </div>
             <div className="flex-1 flex justify-end">
@@ -285,7 +354,7 @@ export default function DeckBuilder() {
                 <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
                 <input
                   className="w-full bg-surface-container-lowest border-none rounded-full py-2 pl-10 pr-4 text-xs focus:ring-1 focus:ring-primary text-on-surface"
-                  placeholder="Search cards..."
+                  placeholder="Rechercher des cartes..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -304,7 +373,7 @@ export default function DeckBuilder() {
               {filteredCards.map((card) => {
                 const inDeck = currentDeck?.cards.find((dc) => dc.card.id === card.id)
                 const maxed = inDeck && inDeck.quantity >= 2
-                const deckFull = deckTotal >= 30
+                const deckFull = deckTotal >= 10
 
                 return (
                   <div
@@ -312,6 +381,34 @@ export default function DeckBuilder() {
                     className={`relative group cursor-pointer aspect-[3/4.2] rounded-lg overflow-visible transition-all ${(maxed || deckFull || !currentDeck) ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
                     onClick={() => !maxed && !deckFull && currentDeck && handleAddCard(card)}
                   >
+                    {/* Tooltip au survol */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[100] w-56 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-3 shadow-2xl text-left">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full mb-2 ${
+                          card.cardType === 'creature' ? 'bg-primary/20 text-primary' :
+                          card.cardType === 'spell' ? 'bg-secondary/20 text-secondary' :
+                          'bg-tertiary/20 text-tertiary'
+                        }`}>
+                          <span className="material-symbols-outlined text-[11px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {card.cardType === 'creature' ? 'smart_toy' : card.cardType === 'spell' ? 'auto_fix_high' : 'shield'}
+                          </span>
+                          <span className="text-[9px] font-bold uppercase tracking-widest">
+                            {card.cardType === 'creature' ? 'Créature' : card.cardType === 'spell' ? 'Sort' : 'Artefact'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-primary mb-1">{card.name}</p>
+                        {card.effectText
+                          ? <p className="text-[11px] text-on-surface leading-snug">{card.effectText}</p>
+                          : <p className="text-[11px] text-on-surface-variant italic">Aucun effet spécial.</p>
+                        }
+                        <div className="flex gap-3 mt-2 pt-2 border-t border-outline-variant/20">
+                          <span className="text-[10px] text-secondary font-bold">💧 {card.manaCost} mana</span>
+                          {card.attack !== undefined && <span className="text-[10px] text-primary font-bold">⚔ {card.attack}</span>}
+                          {card.defense !== undefined && <span className="text-[10px] text-error font-bold">🛡 {card.defense}</span>}
+                        </div>
+                      </div>
+                      <div className="w-2 h-2 bg-surface-container-low border-r border-b border-outline-variant/30 rotate-45 mx-auto -mt-1"></div>
+                    </div>
                     {(maxed) && (
                       <div className="absolute inset-0 bg-black/50 z-10 rounded-lg flex items-center justify-center">
                         <span className="text-white font-bold text-[10px] uppercase tracking-widest bg-black/60 px-3 py-1 rounded">Max</span>
@@ -346,13 +443,19 @@ export default function DeckBuilder() {
                       <div className="absolute bottom-0 left-0 right-0 p-2.5 flex flex-col gap-1">
                         <div className="text-center">
                           <h3 className="font-headline text-[11px] text-primary leading-tight drop-shadow-lg">{card.name}</h3>
-                          <p className="text-[8px] text-on-surface/60 uppercase tracking-[0.12em]">{card.rarity} {card.cardType}</p>
+                          <div className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full mt-0.5 ${
+                            card.cardType === 'creature' ? 'bg-primary/30 text-primary' :
+                            card.cardType === 'spell' ? 'bg-secondary/30 text-secondary' :
+                            'bg-tertiary/30 text-tertiary'
+                          }`}>
+                            <span className="material-symbols-outlined text-[8px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                              {card.cardType === 'creature' ? 'smart_toy' : card.cardType === 'spell' ? 'auto_fix_high' : 'shield'}
+                            </span>
+                            <span className="text-[7px] font-bold uppercase tracking-widest">
+                              {card.cardType === 'creature' ? 'Créature' : card.cardType === 'spell' ? 'Sort' : 'Artefact'}
+                            </span>
+                          </div>
                         </div>
-                        {card.effectText && (
-                          <p className="text-[8px] text-on-surface/70 text-center italic leading-tight line-clamp-2 px-1">
-                            "{card.effectText}"
-                          </p>
-                        )}
                         {(card.attack !== undefined || card.defense !== undefined) && (
                           <div className="flex justify-between items-center mt-0.5">
                             {card.attack !== undefined ? (

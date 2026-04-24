@@ -27,8 +27,8 @@ export default function Login() {
       }
       login(res.player, res.token)
       navigate('/dashboard')
-    } catch {
-      setError('Invalid credentials. Try again.')
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Invalid credentials. Try again.')
     } finally {
       setLoading(false)
     }

@@ -6,7 +6,7 @@ export const gameSocket = {
   connect(token: string): Socket {
     if (socket?.connected) return socket
 
-    socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:3000', {
+    socket = io(`${import.meta.env.VITE_WS_URL || 'http://localhost:3000'}/game`, {
       auth: { token },
       transports: ['websocket'],
     })
@@ -33,12 +33,48 @@ export const gameSocket = {
     }
   },
 
+  // ─── Matchmaking ────────────────────────────────────────────────────────────
+
+  joinMatchmaking(deckId: string): void {
+    socket?.emit('join_matchmaking', { deckId })
+  },
+
+  leaveMatchmaking(): void {
+    socket?.emit('leave_matchmaking')
+  },
+
+  onMatchmakingMatched(cb: (data: any) => void): void {
+    socket?.on('matchmaking:matched', cb)
+  },
+
+  onMatchmakingWaiting(cb: () => void): void {
+    socket?.on('matchmaking:waiting', cb)
+  },
+
+  onMatchmakingCancelled(cb: () => void): void {
+    socket?.on('matchmaking:cancelled', cb)
+  },
+
+  onMatchmakingError(cb: (data: { message: string }) => void): void {
+    socket?.on('matchmaking:error', cb)
+  },
+
+  // ─── Partie ─────────────────────────────────────────────────────────────────
+
   joinGame(gameId: string): void {
     socket?.emit('join_game', { gameId })
   },
 
-  playCard(gameId: string, cardId: string, targetId?: string): void {
-    socket?.emit('play_card', { gameId, cardId, targetId })
+  playCard(gameId: string, cardId: string): void {
+    socket?.emit('play_card', { gameId, cardId })
+  },
+
+  attack(gameId: string, data: {
+    attackerInstanceId: string
+    targetType: 'creature' | 'player'
+    targetInstanceId?: string
+  }): void {
+    socket?.emit('attack', { gameId, ...data })
   },
 
   endTurn(gameId: string): void {
@@ -49,16 +85,16 @@ export const gameSocket = {
     socket?.emit('surrender', { gameId })
   },
 
-  onGameState(cb: (state: unknown) => void): void {
+  onGameState(cb: (state: any) => void): void {
     socket?.on('game_state', cb)
   },
 
-  onGameAction(cb: (action: unknown) => void): void {
-    socket?.on('game_action', cb)
+  onGameOver(cb: (result: { winnerId: string; reason: string }) => void): void {
+    socket?.on('game_over', cb)
   },
 
-  onGameOver(cb: (result: unknown) => void): void {
-    socket?.on('game_over', cb)
+  onError(cb: (data: { message: string }) => void): void {
+    socket?.on('error', cb)
   },
 
   off(event: string): void {

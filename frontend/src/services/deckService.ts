@@ -62,8 +62,8 @@ export const deckService = {
     await api.delete(`/decks/${id}`)
   },
 
-  async addCardToDeck(deckId: string, cardId: string): Promise<void> {
-    await api.post(`/decks/${deckId}/cards`, { cardId })
+  async addCardToDeck(deckId: string, cardId: string, quantity = 1): Promise<void> {
+    await api.post(`/decks/${deckId}/cards`, { cardId, quantity })
   },
 
   async removeCardFromDeck(deckId: string, cardId: string): Promise<void> {

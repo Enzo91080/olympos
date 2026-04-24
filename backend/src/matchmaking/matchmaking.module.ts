@@ -7,5 +7,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   providers: [MatchmakingService],
   controllers: [MatchmakingController],
+  exports: [MatchmakingService],
 })
 export class MatchmakingModule {}

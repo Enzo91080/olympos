@@ -1,6 +1,5 @@
 import {
   Injectable,
-  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,12 +9,6 @@ export class MatchmakingService {
   constructor(private prisma: PrismaService) {}
 
   async join(playerId: string) {
-    const existing = await this.prisma.matchmakingQueue.findUnique({
-      where: { playerId },
-    });
-    if (existing && existing.status === 'waiting')
-      throw new ConflictException('Already in queue');
-
     const player = await this.prisma.player.findUnique({
       where: { id: playerId },
     });
@@ -23,7 +16,12 @@ export class MatchmakingService {
 
     const entry = await this.prisma.matchmakingQueue.upsert({
       where: { playerId },
-      update: { status: 'waiting', joinedAt: new Date() },
+      update: {
+        status: 'waiting',
+        joinedAt: new Date(),
+        eloMin: Math.max(0, player.eloScore - 200),
+        eloMax: player.eloScore + 200,
+      },
       create: {
         playerId,
         status: 'waiting',

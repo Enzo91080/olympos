@@ -32,30 +32,32 @@ const cardData = [
   { name: 'Nymphe Aquatique', cardType: 'creature', manaCost: 2, attack: 1, defense: 3, effectText: 'Régénération : récupère 1 PV en défense à chaque tour.', rarity: 'common', imageUrl: '/cards/nymphe-aquatique.png' },
   { name: 'Fantôme des Enfers', cardType: 'creature', manaCost: 1, attack: 2, defense: 1, effectText: null, rarity: 'common', imageUrl: '/cards/fantome-des-enfers.png' },
   // ─── SORTS LÉGENDAIRES ───────────────────────────────────────────
-  { name: "Foudre de l'Olympe", cardType: 'spell', manaCost: 7, attack: null, defense: null, effectText: 'Inflige 7 dégâts à une créature ou directement au joueur adverse.', rarity: 'legendary', imageUrl: '/cards/foudre-de-lolympe.png' },
+  // attack = puissance du sort (dégâts / soin / bonus stats)
+  // defense = bonus défense pour les sorts qui en donnent
+  { name: "Foudre de l'Olympe", cardType: 'spell', manaCost: 7, attack: 7, defense: null, effectText: 'Inflige 7 dégâts à une créature ou directement au joueur adverse.', rarity: 'legendary', imageUrl: '/cards/foudre-de-lolympe.png', spellTarget: 'targeted' },
   // ─── SORTS ÉPIQUES ───────────────────────────────────────────────
-  { name: 'Colère de Poséidon', cardType: 'spell', manaCost: 5, attack: null, defense: null, effectText: 'Détruit toutes les créatures ennemies avec 3 défense ou moins.', rarity: 'epic', imageUrl: '/cards/colere-de-poseidon.png' },
-  { name: "Malédiction d'Hadès", cardType: 'spell', manaCost: 4, attack: null, defense: null, effectText: "Réduit l'attaque de toutes les créatures ennemies de 3 jusqu'à la fin du tour.", rarity: 'epic', imageUrl: '/cards/malediction-dhades.png' },
+  { name: 'Colère de Poséidon', cardType: 'spell', manaCost: 5, attack: 3, defense: null, effectText: 'Inflige 3 dégâts à toutes les créatures ennemies.', rarity: 'epic', imageUrl: '/cards/colere-de-poseidon.png', spellTarget: 'aoe_enemy' },
+  { name: "Malédiction d'Hadès", cardType: 'spell', manaCost: 4, attack: 3, defense: null, effectText: "Réduit l'attaque de toutes les créatures ennemies de 3 jusqu'à la fin du tour.", rarity: 'epic', imageUrl: '/cards/malediction-dhades.png', spellTarget: 'aoe_enemy' },
   // ─── SORTS RARES ─────────────────────────────────────────────────
-  { name: "Bénédiction d'Athena", cardType: 'spell', manaCost: 3, attack: null, defense: null, effectText: "Pioche 3 cartes. Une créature alliée gagne +2/+2 jusqu'à la fin du tour.", rarity: 'rare', imageUrl: '/cards/benediction-dathena.png' },
-  { name: "Flèche d'Apollon", cardType: 'spell', manaCost: 2, attack: null, defense: null, effectText: 'Inflige 3 dégâts à une créature ciblée.', rarity: 'rare', imageUrl: '/cards/fleche-dapollon.png' },
-  { name: 'Brume du Styx', cardType: 'spell', manaCost: 3, attack: null, defense: null, effectText: 'Toutes les créatures ennemies perdent leur capacité spéciale pendant 2 tours.', rarity: 'rare', imageUrl: '/cards/brume-du-styx.png' },
+  { name: "Bénédiction d'Athena", cardType: 'spell', manaCost: 3, attack: 3, defense: null, effectText: 'Restaure 3 PV au joueur allié.', rarity: 'rare', imageUrl: '/cards/benediction-dathena.png', spellTarget: 'self' },
+  { name: "Flèche d'Apollon", cardType: 'spell', manaCost: 2, attack: 3, defense: null, effectText: 'Inflige 3 dégâts à une créature ciblée.', rarity: 'rare', imageUrl: '/cards/fleche-dapollon.png', spellTarget: 'targeted_creature' },
+  { name: 'Brume du Styx', cardType: 'spell', manaCost: 3, attack: 2, defense: null, effectText: 'Inflige 2 dégâts à toutes les créatures ennemies.', rarity: 'rare', imageUrl: '/cards/brume-du-styx.png', spellTarget: 'aoe_enemy' },
   // ─── SORTS COMMUNS ───────────────────────────────────────────────
-  { name: 'Frappe Divine', cardType: 'spell', manaCost: 1, attack: null, defense: null, effectText: 'Inflige 2 dégâts à une créature ciblée.', rarity: 'common', imageUrl: '/cards/frappe-divine.png' },
-  { name: 'Soin des Muses', cardType: 'spell', manaCost: 2, attack: null, defense: null, effectText: 'Restaure 4 PV au joueur allié.', rarity: 'common', imageUrl: '/cards/soin-des-muses.png' },
-  { name: 'Invocation Mineure', cardType: 'spell', manaCost: 1, attack: null, defense: null, effectText: 'Invoque un Soldat Spartiate (1/2) sur le champ de bataille.', rarity: 'common', imageUrl: '/cards/invocation-mineure.png' },
+  { name: 'Frappe Divine', cardType: 'spell', manaCost: 1, attack: 2, defense: null, effectText: 'Inflige 2 dégâts à une créature ciblée.', rarity: 'common', imageUrl: '/cards/frappe-divine.png', spellTarget: 'targeted_creature' },
+  { name: 'Soin des Muses', cardType: 'spell', manaCost: 2, attack: 4, defense: null, effectText: 'Restaure 4 PV au joueur allié.', rarity: 'common', imageUrl: '/cards/soin-des-muses.png', spellTarget: 'self' },
+  { name: 'Invocation Mineure', cardType: 'spell', manaCost: 1, attack: 1, defense: 2, effectText: 'Invoque un Soldat Spartiate (1/2) sur le champ de bataille.', rarity: 'common', imageUrl: '/cards/invocation-mineure.png', spellTarget: 'summon' },
   // ─── ARTEFACTS LÉGENDAIRES ───────────────────────────────────────
-  { name: "Égide d'Athena", cardType: 'artifact', manaCost: 6, attack: null, defense: null, effectText: "Permanent. Tes créatures ont +2 défense. Une fois par tour, annule les dégâts d'un sort adverse.", rarity: 'legendary', imageUrl: '/cards/egide-dathena.png' },
+  { name: "Égide d'Athena", cardType: 'artifact', manaCost: 6, attack: null, defense: 2, effectText: 'Tes créatures gagnent +2 défense immédiatement.', rarity: 'legendary', imageUrl: '/cards/egide-dathena.png', spellTarget: 'self' },
   // ─── ARTEFACTS ÉPIQUES ───────────────────────────────────────────
-  { name: 'Trident de Poséidon', cardType: 'artifact', manaCost: 5, attack: null, defense: null, effectText: 'Équipe une créature. Elle gagne +3 attaque et Provoque.', rarity: 'epic', imageUrl: '/cards/trident-de-poseidon.png' },
-  { name: "Casque d'Hadès", cardType: 'artifact', manaCost: 4, attack: null, defense: null, effectText: "La créature équipée devient invisible : elle ne peut pas être ciblée par des sorts adverses.", rarity: 'epic', imageUrl: '/cards/casque-dhades.png' },
+  { name: 'Trident de Poséidon', cardType: 'artifact', manaCost: 5, attack: 3, defense: null, effectText: 'Une créature alliée ciblée gagne +3 attaque.', rarity: 'epic', imageUrl: '/cards/trident-de-poseidon.png', spellTarget: 'equip' },
+  { name: "Casque d'Hadès", cardType: 'artifact', manaCost: 4, attack: 2, defense: 2, effectText: 'Une créature alliée ciblée gagne +2 attaque et +2 défense.', rarity: 'epic', imageUrl: '/cards/casque-dhades.png', spellTarget: 'equip' },
   // ─── ARTEFACTS RARES ─────────────────────────────────────────────
-  { name: "Sandales d'Hermès", cardType: 'artifact', manaCost: 3, attack: null, defense: null, effectText: 'La créature équipée gagne Charge et +2 attaque ce tour.', rarity: 'rare', imageUrl: '/cards/sandales-dhermes.png' },
-  { name: "Lyre d'Orphée", cardType: 'artifact', manaCost: 3, attack: null, defense: null, effectText: 'Permanent. Pioche 1 carte supplémentaire à chaque début de ton tour.', rarity: 'rare', imageUrl: '/cards/lyre-dorphee.png' },
-  { name: 'Bouclier de Persée', cardType: 'artifact', manaCost: 2, attack: null, defense: null, effectText: 'Équipe une créature. Elle gagne +3 défense.', rarity: 'rare', imageUrl: '/cards/bouclier-de-persee.png' },
+  { name: "Sandales d'Hermès", cardType: 'artifact', manaCost: 3, attack: 2, defense: null, effectText: 'Une créature alliée ciblée gagne +2 attaque et peut attaquer immédiatement.', rarity: 'rare', imageUrl: '/cards/sandales-dhermes.png', spellTarget: 'equip' },
+  { name: "Lyre d'Orphée", cardType: 'artifact', manaCost: 3, attack: 2, defense: null, effectText: 'Restaure 2 PV au joueur allié.', rarity: 'rare', imageUrl: '/cards/lyre-dorphee.png', spellTarget: 'self' },
+  { name: 'Bouclier de Persée', cardType: 'artifact', manaCost: 2, attack: null, defense: 3, effectText: 'Une créature alliée ciblée gagne +3 défense.', rarity: 'rare', imageUrl: '/cards/bouclier-de-persee.png', spellTarget: 'equip' },
   // ─── ARTEFACTS COMMUNS ───────────────────────────────────────────
-  { name: "Amulette d'Héra", cardType: 'artifact', manaCost: 1, attack: null, defense: null, effectText: "Restaure 2 PV au joueur allié quand cet artefact entre en jeu.", rarity: 'common', imageUrl: '/cards/amulette-dhera.png' },
-  { name: 'Torche de Prométhée', cardType: 'artifact', manaCost: 2, attack: null, defense: null, effectText: 'Inflige 1 dégât par tour à toutes les créatures ennemies.', rarity: 'common', imageUrl: '/cards/torche-de-promethee.png' },
+  { name: "Amulette d'Héra", cardType: 'artifact', manaCost: 1, attack: 2, defense: null, effectText: 'Restaure 2 PV au joueur allié.', rarity: 'common', imageUrl: '/cards/amulette-dhera.png', spellTarget: 'self' },
+  { name: 'Torche de Prométhée', cardType: 'artifact', manaCost: 2, attack: 1, defense: null, effectText: 'Inflige 1 dégât à toutes les créatures ennemies.', rarity: 'common', imageUrl: '/cards/torche-de-promethee.png', spellTarget: 'aoe_enemy' },
 ]
 
 async function main() {
@@ -66,14 +68,21 @@ async function main() {
     const cards = await prisma.card.createMany({ data: cardData })
     console.log(`✅ ${cards.count} cartes créées.`)
   } else {
-    console.log('🖼️  Mise à jour des imageUrl...')
+    console.log('🔄 Mise à jour des cartes existantes...')
     for (const card of cardData) {
       await prisma.card.updateMany({
         where: { name: card.name },
-        data: { imageUrl: card.imageUrl },
+        data: {
+          imageUrl: card.imageUrl,
+          spellTarget: (card as any).spellTarget ?? null,
+          attack: card.attack ?? null,
+          defense: card.defense ?? null,
+          manaCost: card.manaCost,
+          effectText: card.effectText ?? null,
+        },
       })
     }
-    console.log(`✅ ${cardData.length} imageUrl mises à jour.`)
+    console.log(`✅ ${cardData.length} cartes mises à jour.`)
   }
 
   // ── 2. Bot player (upsert) ────────────────────────────────────────────────
@@ -97,14 +106,14 @@ async function main() {
 
   if (!existingBotDeck) {
     console.log('🃏 Creating bot deck...')
-    // Use all creature cards (up to 15 unique × 2 = 30)
+    // Use 5 unique creature cards × 2 = 10
     const creatures = await prisma.card.findMany({
       where: { cardType: 'creature' },
-      take: 15,
+      take: 5,
     })
 
-    if (creatures.length < 15) {
-      throw new Error(`Not enough creature cards to build bot deck (found ${creatures.length}, need 15)`)
+    if (creatures.length < 5) {
+      throw new Error(`Not enough creature cards to build bot deck (found ${creatures.length}, need 5)`)
     }
 
     const deck = await prisma.deck.create({

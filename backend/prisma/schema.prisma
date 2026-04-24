@@ -26,16 +26,25 @@ model Player {
 }
 
 model Card {
-  id         String   @id @default(uuid())
-  name       String
-  cardType   String
-  manaCost   Int
-  attack     Int?
-  defense    Int?
-  effectText String?
-  rarity     String
-  imageUrl   String?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(uuid())
+  name        String
+  cardType    String
+  manaCost    Int
+  attack      Int?
+  defense     Int?
+  effectText  String?
+  rarity      String
+  imageUrl    String?
+  // Pour les sorts/artefacts : comment la carte est jouée
+  // 'targeted'         → cliquer sur une créature ennemie ou le héros adverse
+  // 'targeted_creature'→ cliquer sur une créature ennemie uniquement
+  // 'aoe_enemy'        → s'applique automatiquement à toutes les créatures ennemies
+  // 'self'             → s'applique automatiquement au joueur/ses créatures
+  // 'summon'           → invoque une créature (nécessite une case vide)
+  // 'equip'            → équipe une créature alliée ciblée
+  // 'passive'          → effet passif permanent
+  spellTarget String?
+  createdAt   DateTime @default(now())
 
   deckCards   DeckCard[]
   gameActions GameAction[]
@@ -70,8 +79,8 @@ model Game {
   id        String    @id @default(uuid())
   player1Id String
   player2Id String
-  deck1Id   String
-  deck2Id   String
+  deck1Id   String?
+  deck2Id   String?
   winnerId  String?
   status    String    @default("waiting")
   startedAt DateTime?
@@ -79,8 +88,8 @@ model Game {
 
   player1  Player       @relation("Player1Games", fields: [player1Id], references: [id])
   player2  Player       @relation("Player2Games", fields: [player2Id], references: [id])
-  deck1    Deck         @relation("Deck1Games", fields: [deck1Id], references: [id])
-  deck2    Deck         @relation("Deck2Games", fields: [deck2Id], references: [id])
+  deck1    Deck?        @relation("Deck1Games", fields: [deck1Id], references: [id])
+  deck2    Deck?        @relation("Deck2Games", fields: [deck2Id], references: [id])
   winner   Player?      @relation("WinnerGames", fields: [winnerId], references: [id])
   actions  GameAction[]
 }

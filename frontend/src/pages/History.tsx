@@ -31,7 +31,7 @@ export default function History() {
           <div className="text-2xl font-bold uppercase tracking-tighter text-primary">Archives</div>
           <div className="flex items-center gap-2 text-sm text-on-surface-variant">
             <span className="material-symbols-outlined text-primary">history_edu</span>
-            {total} battles recorded
+            {total} batailles enregistrées
           </div>
         </header>
 
@@ -40,15 +40,15 @@ export default function History() {
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-surface-container-highest rounded-xl p-6 text-center shadow-xl">
               <p className="text-4xl font-black text-on-surface font-headline">{victories}</p>
-              <p className="text-[10px] uppercase tracking-widest text-primary mt-1">Victories</p>
+              <p className="text-[10px] uppercase tracking-widest text-primary mt-1">Victoires</p>
             </div>
             <div className="bg-surface-container-highest rounded-xl p-6 text-center shadow-xl">
               <p className="text-4xl font-black text-on-surface font-headline">{defeats}</p>
-              <p className="text-[10px] uppercase tracking-widest text-error mt-1">Defeats</p>
+              <p className="text-[10px] uppercase tracking-widest text-error mt-1">Défaites</p>
             </div>
             <div className="bg-surface-container-highest rounded-xl p-6 text-center shadow-xl">
               <p className="text-4xl font-black text-on-surface font-headline">{winRate}%</p>
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant mt-1">Win Rate</p>
+              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant mt-1">Taux de victoire</p>
             </div>
           </div>
 
@@ -56,7 +56,7 @@ export default function History() {
           <section className="bg-surface-container-highest rounded-xl overflow-hidden shadow-xl">
             <div className="px-6 py-4 border-b border-outline-variant/20 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">history</span>
-              <h3 className="font-headline text-xl text-primary">Battle Chronicle</h3>
+              <h3 className="font-headline text-xl text-primary">Chronique des batailles</h3>
             </div>
 
             {loading ? (
@@ -64,7 +64,7 @@ export default function History() {
                 <span className="material-symbols-outlined text-primary text-4xl animate-spin">autorenew</span>
               </div>
             ) : history.length === 0 ? (
-              <p className="text-sm text-on-surface-variant text-center py-12">No battles yet. Seek glory on the Battlefront.</p>
+              <p className="text-sm text-on-surface-variant text-center py-12">Aucune bataille pour l'instant. Cherche la gloire sur le champ de bataille.</p>
             ) : (
               <div className="divide-y divide-outline-variant/10">
                 {history.map((game) => (
@@ -84,7 +84,7 @@ export default function History() {
                         ? 'bg-primary/10 border-primary/30 text-primary'
                         : 'bg-error/10 border-error/30 text-error'
                     }`}>
-                      {game.result}
+                      {game.result === 'victory' ? 'Victoire' : 'Défaite'}
                     </span>
                   </div>
                 ))}
