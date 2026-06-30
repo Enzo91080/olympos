@@ -261,8 +261,11 @@ export default function GameBoard() {
       }
     } else if (isTargetedSpell && enemy.field[index]) {
       if (isPvp) {
-        gameSocket.playCard(storeGameId!, selectedCard!.id)
-        clearSelection()
+        const target = enemy.field[index]
+        if (target) {
+          gameSocket.playCard(storeGameId!, selectedCard!.id, { targetId: target.instanceId, targetType: 'creature' })
+          clearSelection()
+        }
       } else {
         castSpell(selectedHandIndex!, index)
       }
@@ -283,7 +286,7 @@ export default function GameBoard() {
       }
     } else if (isTargetedSpell) {
       if (isPvp) {
-        gameSocket.playCard(storeGameId!, selectedCard!.id)
+        gameSocket.playCard(storeGameId!, selectedCard!.id, { targetId: 'hero', targetType: 'hero' })
         clearSelection()
       } else {
         castSpell(selectedHandIndex!, 'hero')
@@ -422,7 +425,7 @@ export default function GameBoard() {
       </aside>
 
       {/* Main Board */}
-      <main className="ml-72 h-full marble-bg relative flex flex-col items-center justify-between py-8 overflow-hidden">
+      <main className="ml-72 h-full marble-bg relative flex flex-col items-center justify-between pt-20 pb-4 overflow-hidden">
         {/* Divider */}
         <div className="absolute top-1/2 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/40 to-transparent -translate-y-1/2">
           <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 rotate-45 border-2 border-primary/60 bg-surface flex items-center justify-center shadow-[0_0_20px_rgba(230,195,100,0.4)]">
@@ -434,7 +437,7 @@ export default function GameBoard() {
         <div className="w-full flex flex-col items-center gap-4 z-10">
           {/* Enemy Stats */}
           <div
-            className={`flex gap-12 items-center px-8 py-2 bg-surface-container-lowest/60 backdrop-blur-md rounded-full border shadow-xl transition-all
+            className={`self-start ml-6 flex gap-8 items-center px-6 py-2 bg-surface-container-lowest/60 backdrop-blur-md rounded-full border shadow-xl transition-all
               ${heroTargetable ? 'border-error/60 cursor-crosshair animate-pulse' : 'border-outline-variant/10'}`}
             onClick={handleEnemyHeroClick}
           >
@@ -482,6 +485,30 @@ export default function GameBoard() {
 
         {/* Player Zone */}
         <div className="w-full flex flex-col items-center gap-4 z-10">
+          {/* Player Stats */}
+          <div className="self-start ml-6 flex gap-8 items-center px-6 py-2 bg-surface-container-lowest/60 backdrop-blur-md rounded-full border border-outline-variant/10 shadow-xl">
+            <div className="flex flex-col items-center relative">
+              <span className="text-[9px] text-on-surface-variant uppercase tracking-widest font-bold mb-0.5">Tes PV</span>
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                <span className="font-headline font-bold text-2xl text-on-surface">{player.hp}</span>
+              </div>
+              {playerHpDelta !== null && (
+                <span className={`absolute -top-6 left-1/2 -translate-x-1/2 font-headline font-black text-lg animate-bounce pointer-events-none ${playerHpDelta < 0 ? 'text-error' : 'text-primary'}`}>
+                  {playerHpDelta > 0 ? `+${playerHpDelta}` : playerHpDelta} PV
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col items-center">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mb-1">Ton mana</p>
+              <div className="flex gap-1">
+                {Array.from({ length: player.maxMana }).map((_, i) => (
+                  <div key={i} className={`w-3 h-3 rounded-full ${i < player.mana ? 'bg-secondary shadow-[0_0_8px_#cbbeff]' : 'bg-surface-container-highest border border-outline-variant/30'}`} />
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* Player Field */}
           <div className="flex justify-center gap-4 w-full max-w-5xl h-44">
             {player.field.map((card, i) => (
