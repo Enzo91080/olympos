@@ -639,31 +639,6 @@ export default function GameBoard() {
             </span>
           </button>
 
-          {/* Player Stats */}
-          <div className="flex flex-col gap-4 items-center p-5 bg-surface-container-highest/40 backdrop-blur-xl rounded-2xl border border-outline-variant/20 shadow-2xl">
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">Points de vie</p>
-              <div className="flex items-center gap-2 relative">
-                <span className="material-symbols-outlined text-primary text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>shield_with_heart</span>
-                <span className={`font-headline font-bold text-4xl ${player.hp <= 10 ? 'text-error' : 'text-primary'}`}>{player.hp}</span>
-                {playerHpDelta !== null && (
-                  <span className={`absolute -top-7 left-1/2 -translate-x-1/2 font-headline font-black text-xl animate-bounce pointer-events-none whitespace-nowrap ${playerHpDelta < 0 ? 'text-error' : 'text-primary'}`}>
-                    {playerHpDelta > 0 ? `+${playerHpDelta}` : playerHpDelta} PV
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="w-full h-[1px] bg-outline-variant/30"></div>
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">Mana</p>
-              <div className="flex flex-wrap justify-center gap-1.5 max-w-[100px]">
-                {Array.from({ length: player.maxMana }).map((_, i) => (
-                  <div key={i} className={`w-4 h-4 rounded rotate-45 border transition-all ${i < player.mana ? 'bg-secondary shadow-[0_0_12px_#cbbeff] border-white/40' : 'bg-surface-container-highest border-outline-variant/30'}`} />
-                ))}
-              </div>
-              <p className="font-headline font-bold text-secondary text-lg">{player.mana} / {player.maxMana}</p>
-            </div>
-          </div>
         </div>
 
 
