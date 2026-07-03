@@ -2,32 +2,13 @@ import { useEffect, useState } from 'react'
 import Sidebar from '../components/layout/Sidebar'
 import api from '../services/api'
 import { useAuthStore } from '../store/authStore'
+import { rankFromElo, rankColor } from '../utils/rank'
 
 interface LeaderboardEntry {
   id: string
   username: string
   eloScore: number
   avatarUrl?: string
-}
-
-function rankFromElo(elo: number): string {
-  if (elo >= 2000) return 'Légende'
-  if (elo >= 1800) return 'Diamant'
-  if (elo >= 1600) return 'Platine'
-  if (elo >= 1400) return 'Or'
-  if (elo >= 1200) return 'Argent'
-  return 'Bronze'
-}
-
-function rankColor(rank: string): string {
-  switch (rank) {
-    case 'Légende': return 'text-primary'
-    case 'Diamant': return 'text-blue-400'
-    case 'Platine': return 'text-cyan-400'
-    case 'Or': return 'text-yellow-400'
-    case 'Argent': return 'text-gray-300'
-    default: return 'text-orange-400'
-  }
 }
 
 export default function Leaderboard() {

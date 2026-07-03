@@ -6,7 +6,8 @@ import { PrismaService } from '../prisma/prisma.service';
 const STARTING_HP = 20;
 const STARTING_HAND_SIZE = 4;
 const MAX_MANA = 10;
-const MAX_BOARD_SIZE = 7;
+export const MAX_BOARD_SIZE = 7;
+const MAX_HAND_SIZE = 10;
 
 @Injectable()
 export class GameEngineService {
@@ -32,8 +33,8 @@ export class GameEngineService {
       player1: {
         playerId: player1Id,
         hp: STARTING_HP,
-        mana: 1,
-        maxMana: 1,
+        mana: 0,
+        maxMana: 0,
         hand: p1Hand,
         deckRemaining: deck1,
         board: [],
@@ -60,15 +61,18 @@ export class GameEngineService {
     const player = this.getPlayer(state, playerId);
     const newMaxMana = Math.min(player.maxMana + 1, MAX_MANA);
 
-    // Pioche une carte
+    // Pioche — overdraw si main pleine (I4)
     let newHand = [...player.hand];
     let newDeck = [...player.deckRemaining];
     if (newDeck.length > 0) {
-      newHand = [...newHand, newDeck[0]];
+      if (newHand.length < MAX_HAND_SIZE) {
+        newHand = [...newHand, newDeck[0]];
+      }
+      // Si main pleine : la carte est détruite (overdraw), aucun effet
       newDeck = newDeck.slice(1);
     }
 
-    // Toutes les créatures sur le board peuvent attaquer
+    // Toutes les créatures existantes sur le board peuvent attaquer (I11)
     const newBoard = player.board.map((c) => ({ ...c, canAttack: true }));
 
     const updatedPlayer: PlayerState = {
@@ -89,96 +93,172 @@ export class GameEngineService {
     };
   }
 
-  // ─── Jouer une carte ────────────────────────────────────────────────────────
+  // ─── Jouer une créature ────────────────────────────────────────────────────
 
-  async playCard(
+  async playCreature(
     state: GameState,
     playerId: string,
     cardId: string,
   ): Promise<GameState> {
+    this.assertInProgress(state);
     this.assertTurn(state, playerId);
 
     const player = this.getPlayer(state, playerId);
-    if (!player.hand.includes(cardId)) {
-      throw new BadRequestException('Card not in hand');
+
+    if (!player.hand.includes(cardId)) throw new BadRequestException('Card not in hand');
+
+    const card = await this.prisma.card.findUnique({ where: { id: cardId } });
+    if (!card) throw new BadRequestException('Card not found');
+    if (card.cardType !== 'creature') throw new BadRequestException('Card is not a creature');
+    if (player.mana < card.manaCost) throw new BadRequestException(`Not enough mana (need ${card.manaCost}, have ${player.mana})`);
+    if (player.board.length >= MAX_BOARD_SIZE) throw new BadRequestException('Board is full (max 7 creatures)');
+
+    const _idx = player.hand.indexOf(cardId);
+    const newHand = [...player.hand.slice(0, _idx), ...player.hand.slice(_idx + 1)];
+    const creature: CardOnBoard = {
+      instanceId: uuid(),
+      cardId: card.id,
+      name: card.name,
+      attack: card.attack ?? 0,
+      defense: card.defense ?? 1,
+      canAttack: false, // summoning sickness (I11)
+    };
+
+    const updatedPlayer: PlayerState = {
+      ...player,
+      hand: newHand,
+      mana: player.mana - card.manaCost,
+      board: [...player.board, creature],
+    };
+
+    return this.setPlayerInState(state, playerId, updatedPlayer);
+  }
+
+  // ─── Jouer un sort automatique ─────────────────────────────────────────────
+
+  async playSpellAuto(
+    state: GameState,
+    playerId: string,
+    cardId: string,
+  ): Promise<GameState> {
+    this.assertInProgress(state);
+    this.assertTurn(state, playerId);
+
+    const player = this.getPlayer(state, playerId);
+
+    if (!player.hand.includes(cardId)) throw new BadRequestException('Card not in hand');
+
+    const card = await this.prisma.card.findUnique({ where: { id: cardId } });
+    if (!card) throw new BadRequestException('Card not found');
+    if (card.cardType === 'creature') throw new BadRequestException('Use play_creature for creatures');
+
+    const st = card.spellTarget ?? null;
+    if (st === 'targeted' || st === 'targeted_creature') {
+      throw new BadRequestException('This spell requires a target — use play_spell_targeted');
     }
+    if (st === 'equip') {
+      throw new BadRequestException('Equip spells are not supported in PvP');
+    }
+    if (st === 'passive') {
+      throw new BadRequestException('Passive spells have no active effect');
+    }
+
+    if (player.mana < card.manaCost) throw new BadRequestException(`Not enough mana (need ${card.manaCost}, have ${player.mana})`);
+
+    const power = card.attack ?? 0;
+    const bonusDef = card.defense ?? 0;
+    const _idx = player.hand.indexOf(cardId);
+    const newHand = [...player.hand.slice(0, _idx), ...player.hand.slice(_idx + 1)];
+    let updatedPlayer: PlayerState = { ...player, hand: newHand, mana: player.mana - card.manaCost };
+    let updatedOpponent = this.getOpponent(state, playerId);
+
+    if (st === 'aoe_enemy') {
+      const newBoard = updatedOpponent.board
+        .map((c) => ({ ...c, defense: c.defense - power }))
+        .filter((c) => c.defense > 0);
+      updatedOpponent = { ...updatedOpponent, board: newBoard };
+    } else if (st === 'self') {
+      if (power > 0) updatedPlayer = { ...updatedPlayer, hp: Math.min(STARTING_HP, updatedPlayer.hp + power) }; // I2
+      if (bonusDef > 0) {
+        updatedPlayer = {
+          ...updatedPlayer,
+          board: updatedPlayer.board.map((c) => ({ ...c, defense: c.defense + bonusDef })),
+        };
+      }
+    } else if (st === 'summon') {
+      if (updatedPlayer.board.length < MAX_BOARD_SIZE) { // I3
+        const summoned: CardOnBoard = {
+          instanceId: uuid(),
+          cardId: card.id,
+          name: 'Serviteur',
+          attack: power || 1,
+          defense: bonusDef || 2,
+          canAttack: false,
+        };
+        updatedPlayer = { ...updatedPlayer, board: [...updatedPlayer.board, summoned] };
+      }
+    } else {
+      // Fallback : dégâts directs au héros
+      updatedOpponent = { ...updatedOpponent, hp: Math.max(0, updatedOpponent.hp - power) }; // I2
+    }
+
+    const newState = this.setPlayerInState(state, playerId, updatedPlayer);
+    return this.setPlayerInState(newState, updatedOpponent.playerId, updatedOpponent);
+  }
+
+  // ─── Jouer un sort ciblé ───────────────────────────────────────────────────
+
+  async playSpellTargeted(
+    state: GameState,
+    playerId: string,
+    cardId: string,
+    targetId: string,
+    targetType: 'creature' | 'hero',
+  ): Promise<GameState> {
+    this.assertInProgress(state);
+    this.assertTurn(state, playerId);
+
+    const player = this.getPlayer(state, playerId);
+    const opponent = this.getOpponent(state, playerId);
+
+    if (!player.hand.includes(cardId)) throw new BadRequestException('Card not in hand');
 
     const card = await this.prisma.card.findUnique({ where: { id: cardId } });
     if (!card) throw new BadRequestException('Card not found');
 
-    if (player.mana < card.manaCost) {
-      throw new BadRequestException(
-        `Not enough mana (need ${card.manaCost}, have ${player.mana})`,
-      );
+    const st = card.spellTarget ?? null;
+    if (st !== 'targeted' && st !== 'targeted_creature') {
+      throw new BadRequestException('This spell is not targeted — use play_spell_auto');
     }
+    if (st === 'targeted_creature' && targetType === 'hero') {
+      throw new BadRequestException('This spell can only target a creature');
+    }
+    if (player.mana < card.manaCost) throw new BadRequestException(`Not enough mana (need ${card.manaCost}, have ${player.mana})`);
 
-    const removeIdx = player.hand.indexOf(cardId);
-    const newHand = player.hand.filter((_, i) => i !== removeIdx);
-    const newMana = player.mana - card.manaCost;
-
-    let updatedPlayer: PlayerState = { ...player, hand: newHand, mana: newMana };
-    let updatedOpponent = this.getOpponent(state, playerId);
-
-    if (card.cardType === 'creature') {
-      if (player.board.length >= MAX_BOARD_SIZE) {
-        throw new BadRequestException('Board is full (max 7 creatures)');
-      }
-      const creature: CardOnBoard = {
-        instanceId: uuid(),
-        cardId: card.id,
-        name: card.name,
-        attack: card.attack ?? 0,
-        defense: card.defense ?? 1,
-        canAttack: false, // summoning sickness
-      };
-      updatedPlayer = { ...updatedPlayer, board: [...updatedPlayer.board, creature] };
-
+    // Validation de la cible
+    if (targetType === 'creature') {
+      const targetExists = opponent.board.some((c) => c.instanceId === targetId);
+      if (!targetExists) throw new BadRequestException('Target creature not on board');
     } else {
-      // Spell / Artifact — résolution data-driven via spellTarget
-      const power = card.attack ?? 0;
-      const bonusDef = card.defense ?? 0;
-      const st = card.spellTarget ?? null;
-
-      if (st === 'targeted' || st === 'targeted_creature') {
-        // Ciblage géré par les actions attack/castSpell du gateway — ici on applique aux dégâts directs si aucune cible passée
-        updatedOpponent = { ...updatedOpponent, hp: Math.max(0, updatedOpponent.hp - power) };
-      } else if (st === 'aoe_enemy') {
-        const newBoard = updatedOpponent.board
-          .map((c) => ({ ...c, defense: c.defense - power }))
-          .filter((c) => c.defense > 0);
-        updatedOpponent = { ...updatedOpponent, board: newBoard };
-      } else if (st === 'self') {
-        if (power > 0) updatedPlayer = { ...updatedPlayer, hp: Math.min(20, updatedPlayer.hp + power) };
-        if (bonusDef > 0) {
-          updatedPlayer = {
-            ...updatedPlayer,
-            board: updatedPlayer.board.map((c) => ({ ...c, defense: c.defense + bonusDef })),
-          };
-        }
-      } else if (st === 'summon') {
-        if (updatedPlayer.board.length < MAX_BOARD_SIZE) {
-          const summoned: CardOnBoard = {
-            instanceId: uuid(),
-            cardId: card.id,
-            name: 'Serviteur',
-            attack: power || 1,
-            defense: bonusDef || 2,
-            canAttack: false,
-          };
-          updatedPlayer = { ...updatedPlayer, board: [...updatedPlayer.board, summoned] };
-        }
-      } else if (st === 'equip') {
-        // L'équipement nécessite une cible — géré via un endpoint dédié; ici on skip sans cible
-      } else {
-        // Fallback : dégâts directs
-        updatedOpponent = { ...updatedOpponent, hp: Math.max(0, updatedOpponent.hp - power) };
-      }
+      if (targetId !== 'hero') throw new BadRequestException('Target must be a creature instanceId or "hero"');
     }
 
-    const newState = {
-      ...state,
-      ...this.setPlayer(state, playerId, updatedPlayer),
-    };
+    const power = card.attack ?? 0;
+    const _idx = player.hand.indexOf(cardId);
+    const newHand = [...player.hand.slice(0, _idx), ...player.hand.slice(_idx + 1)];
+    let updatedPlayer: PlayerState = { ...player, hand: newHand, mana: player.mana - card.manaCost };
+    let updatedOpponent = { ...opponent };
+
+    if (targetType === 'creature') {
+      const newBoard = updatedOpponent.board
+        .map((c) => c.instanceId === targetId ? { ...c, defense: c.defense - power } : c)
+        .filter((c) => c.defense > 0);
+      updatedOpponent = { ...updatedOpponent, board: newBoard };
+    } else {
+      updatedOpponent = { ...updatedOpponent, hp: Math.max(0, updatedOpponent.hp - power) }; // I2
+    }
+
+    const newState = this.setPlayerInState(state, playerId, updatedPlayer);
     return this.setPlayerInState(newState, updatedOpponent.playerId, updatedOpponent);
   }
 
@@ -190,51 +270,33 @@ export class GameEngineService {
     attackerInstanceId: string,
     targetInstanceId: string,
   ): GameState {
+    this.assertInProgress(state);
     this.assertTurn(state, attackerPlayerId);
 
     const attacker = this.getPlayer(state, attackerPlayerId);
     const defender = this.getOpponent(state, attackerPlayerId);
 
-    const attackerCreature = attacker.board.find(
-      (c) => c.instanceId === attackerInstanceId,
-    );
+    const attackerCreature = attacker.board.find((c) => c.instanceId === attackerInstanceId);
     if (!attackerCreature) throw new BadRequestException('Attacker not on board');
-    if (!attackerCreature.canAttack)
-      throw new BadRequestException('Creature cannot attack this turn');
+    if (!attackerCreature.canAttack) throw new BadRequestException('Creature cannot attack this turn');
 
-    const targetCreature = defender.board.find(
-      (c) => c.instanceId === targetInstanceId,
-    );
+    const targetCreature = defender.board.find((c) => c.instanceId === targetInstanceId);
     if (!targetCreature) throw new BadRequestException('Target not on board');
 
-    // Résolution du combat
+    // Résolution symétrique du combat
     const newAttackerDefense = attackerCreature.defense - targetCreature.attack;
     const newTargetDefense = targetCreature.defense - attackerCreature.attack;
 
     const updatedAttackerBoard = attacker.board
-      .map((c) =>
-        c.instanceId === attackerInstanceId
-          ? { ...c, defense: newAttackerDefense, canAttack: false }
-          : c,
-      )
+      .map((c) => c.instanceId === attackerInstanceId ? { ...c, defense: newAttackerDefense, canAttack: false } : c)
       .filter((c) => c.defense > 0);
 
     const updatedDefenderBoard = defender.board
-      .map((c) =>
-        c.instanceId === targetInstanceId
-          ? { ...c, defense: newTargetDefense }
-          : c,
-      )
+      .map((c) => c.instanceId === targetInstanceId ? { ...c, defense: newTargetDefense } : c)
       .filter((c) => c.defense > 0);
 
-    const newState = this.setPlayerInState(state, attackerPlayerId, {
-      ...attacker,
-      board: updatedAttackerBoard,
-    });
-    return this.setPlayerInState(newState, defender.playerId, {
-      ...defender,
-      board: updatedDefenderBoard,
-    });
+    const newState = this.setPlayerInState(state, attackerPlayerId, { ...attacker, board: updatedAttackerBoard });
+    return this.setPlayerInState(newState, defender.playerId, { ...defender, board: updatedDefenderBoard });
   }
 
   // ─── Attaque créature → joueur ──────────────────────────────────────────────
@@ -244,32 +306,29 @@ export class GameEngineService {
     attackerPlayerId: string,
     attackerInstanceId: string,
   ): GameState {
+    this.assertInProgress(state);
     this.assertTurn(state, attackerPlayerId);
 
     const attacker = this.getPlayer(state, attackerPlayerId);
     const defender = this.getOpponent(state, attackerPlayerId);
 
-    const attackerCreature = attacker.board.find(
-      (c) => c.instanceId === attackerInstanceId,
-    );
+    // Taunt implicite (I9) : impossible d'attaquer le héros si des créatures adverses sont en jeu
+    if (defender.board.length > 0) {
+      throw new BadRequestException('Cannot attack the hero while enemy creatures are on the board');
+    }
+
+    const attackerCreature = attacker.board.find((c) => c.instanceId === attackerInstanceId);
     if (!attackerCreature) throw new BadRequestException('Attacker not on board');
-    if (!attackerCreature.canAttack)
-      throw new BadRequestException('Creature cannot attack this turn');
+    if (!attackerCreature.canAttack) throw new BadRequestException('Creature cannot attack this turn');
 
     const updatedAttackerBoard = attacker.board.map((c) =>
       c.instanceId === attackerInstanceId ? { ...c, canAttack: false } : c,
     );
 
-    const newDefenderHp = defender.hp - attackerCreature.attack;
+    const newDefenderHp = Math.max(0, defender.hp - attackerCreature.attack); // I2
 
-    const newState = this.setPlayerInState(state, attackerPlayerId, {
-      ...attacker,
-      board: updatedAttackerBoard,
-    });
-    return this.setPlayerInState(newState, defender.playerId, {
-      ...defender,
-      hp: newDefenderHp,
-    });
+    const newState = this.setPlayerInState(state, attackerPlayerId, { ...attacker, board: updatedAttackerBoard });
+    return this.setPlayerInState(newState, defender.playerId, { ...defender, hp: newDefenderHp });
   }
 
   // ─── Condition de victoire ──────────────────────────────────────────────────
@@ -283,6 +342,12 @@ export class GameEngineService {
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  private assertInProgress(state: GameState) {
+    if (state.status !== 'in_progress') {
+      throw new BadRequestException(`Action not allowed in state: ${state.status}`);
+    }
+  }
 
   private assertTurn(state: GameState, playerId: string) {
     if (state.currentTurnPlayerId !== playerId) {
@@ -302,22 +367,13 @@ export class GameEngineService {
     throw new ForbiddenException('Not a participant');
   }
 
-  private setPlayer(
-    state: GameState,
-    playerId: string,
-    updated: PlayerState,
-  ): Partial<GameState> {
+  private setPlayer(state: GameState, playerId: string, updated: PlayerState): Partial<GameState> {
     if (state.player1.playerId === playerId) return { player1: updated };
     return { player2: updated };
   }
 
-  private setPlayerInState(
-    state: GameState,
-    playerId: string,
-    updated: PlayerState,
-  ): GameState {
-    if (state.player1.playerId === playerId)
-      return { ...state, player1: updated };
+  private setPlayerInState(state: GameState, playerId: string, updated: PlayerState): GameState {
+    if (state.player1.playerId === playerId) return { ...state, player1: updated };
     return { ...state, player2: updated };
   }
 

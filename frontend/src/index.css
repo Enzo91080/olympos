@@ -51,6 +51,21 @@ body {
   background-size: cover;
 }
 
+.admin-input {
+  width: 100%;
+  background: rgba(15, 19, 31, 0.6);
+  border: 1px solid rgba(223, 226, 243, 0.15);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #dfe2f3;
+  transition: border-color 0.2s;
+}
+.admin-input:focus {
+  outline: none;
+  border-color: rgba(230, 195, 100, 0.5);
+}
+
 .card-fanned-1 { transform: rotate(-10deg) translateY(10px); }
 .card-fanned-2 { transform: rotate(-5deg) translateY(2px); }
 .card-fanned-3 { transform: rotate(0deg) translateY(-5px); }

@@ -8,6 +8,7 @@ export interface Player {
   eloScore: number
   avatarUrl?: string
   rank: string
+  role: 'player' | 'admin'
 }
 
 interface AuthState {

@@ -111,7 +111,7 @@ const EMPTY_PLAYER: PlayerState = {
   mana: 1,
   maxMana: 1,
   deckSize: 0,
-  field: [null, null, null, null, null, null],
+  field: [null, null, null, null, null, null, null],
   hand: [],
 }
 
@@ -287,7 +287,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         mana: 1,
         maxMana: 1,
         deckSize: playerDeck.length,
-        field: [null, null, null, null, null, null],
+        field: [null, null, null, null, null, null, null],
         hand: playerHand,
       },
       enemy: {
@@ -297,7 +297,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         mana: 0,
         maxMana: 0,
         deckSize: botDeck.length,
-        field: [null, null, null, null, null, null],
+        field: [null, null, null, null, null, null, null],
         hand: botHand,
       },
     })
@@ -547,7 +547,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         mana: data.isFirstPlayer ? 1 : 0,
         maxMana: data.isFirstPlayer ? 1 : 0,
         deckSize: playerDeck.length,
-        field: [null, null, null, null, null, null],
+        field: [null, null, null, null, null, null, null],
         hand: playerHand,
       },
       enemy: {
@@ -557,7 +557,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         mana: 0,
         maxMana: 0,
         deckSize: 0,
-        field: [null, null, null, null, null, null],
+        field: [null, null, null, null, null, null, null],
         hand: [],
       },
     })
@@ -573,8 +573,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const oppServer = isP1 ? serverState.player2 : serverState.player1
 
     const boardToField = (board: any[]): (GameCard | null)[] => {
-      const field: (GameCard | null)[] = [null, null, null, null, null, null]
-      board.slice(0, 6).forEach((c: any, i: number) => {
+      const field: (GameCard | null)[] = [null, null, null, null, null, null, null]
+      board.slice(0, 7).forEach((c: any, i: number) => {
         const base = cardLookup[c.cardId]
         field[i] = {
           id: c.cardId,

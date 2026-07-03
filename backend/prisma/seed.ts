@@ -99,6 +99,20 @@ async function main() {
   })
   console.log(`✅ Bot player: ${bot.username} (id: ${bot.id})`)
 
+  // ── 2bis. Compte admin (upsert) ───────────────────────────────────────────
+  console.log('🛡️  Setting up admin player...')
+  const admin = await prisma.player.upsert({
+    where: { email: 'admin@olympos.internal' },
+    update: { role: 'admin' },
+    create: {
+      username: 'Zeus Admin',
+      email: 'admin@olympos.internal',
+      passwordHash: await bcrypt.hash('admin123', 10),
+      role: 'admin',
+    },
+  })
+  console.log(`✅ Admin player: ${admin.username} (email: admin@olympos.internal / mot de passe: admin123)`)
+
   // ── 3. Bot deck (idempotent) ──────────────────────────────────────────────
   const existingBotDeck = await prisma.deck.findFirst({
     where: { playerId: bot.id, isValid: true },
@@ -106,14 +120,14 @@ async function main() {
 
   if (!existingBotDeck) {
     console.log('🃏 Creating bot deck...')
-    // Use 5 unique creature cards × 2 = 10
+    // Use 15 unique creature cards × 2 = 30
     const creatures = await prisma.card.findMany({
       where: { cardType: 'creature' },
-      take: 5,
+      take: 15,
     })
 
-    if (creatures.length < 5) {
-      throw new Error(`Not enough creature cards to build bot deck (found ${creatures.length}, need 5)`)
+    if (creatures.length < 15) {
+      throw new Error(`Not enough creature cards to build bot deck (found ${creatures.length}, need 15)`)
     }
 
     const deck = await prisma.deck.create({

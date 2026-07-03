@@ -1,0 +1,15 @@
+-- DropForeignKey
+ALTER TABLE "Game" DROP CONSTRAINT "Game_deck1Id_fkey";
+
+-- DropForeignKey
+ALTER TABLE "Game" DROP CONSTRAINT "Game_deck2Id_fkey";
+
+-- AlterTable
+ALTER TABLE "Game" ALTER COLUMN "deck1Id" DROP NOT NULL,
+ALTER COLUMN "deck2Id" DROP NOT NULL;
+
+-- AddForeignKey
+ALTER TABLE "Game" ADD CONSTRAINT "Game_deck1Id_fkey" FOREIGN KEY ("deck1Id") REFERENCES "Deck"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Game" ADD CONSTRAINT "Game_deck2Id_fkey" FOREIGN KEY ("deck2Id") REFERENCES "Deck"("id") ON DELETE SET NULL ON UPDATE CASCADE;

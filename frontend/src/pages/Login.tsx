@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { authService } from '../services/authService'
 
@@ -119,9 +119,9 @@ export default function Login() {
                   The Secret Cipher
                 </label>
                 {mode === 'login' && (
-                  <a className="text-[10px] uppercase tracking-wider text-primary/70 hover:text-primary transition-colors" href="#">
+                  <Link className="text-[10px] uppercase tracking-wider text-primary/70 hover:text-primary transition-colors" to="/forgot-password">
                     Forgotten Ritual?
-                  </a>
+                  </Link>
                 )}
               </div>
               <div className="relative">

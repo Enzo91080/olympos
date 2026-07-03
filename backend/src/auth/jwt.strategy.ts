@@ -18,6 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
     });
     if (!player) throw new UnauthorizedException();
+    if (player.isBanned) throw new UnauthorizedException('Account banned');
     return player;
   }
 }

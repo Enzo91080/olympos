@@ -4,7 +4,7 @@ import type { Deck, Card } from '../store/deckStore'
 interface BackendCard {
   id: string; name: string; cardType: string; manaCost: number
   attack?: number | null; defense?: number | null; effectText?: string | null
-  rarity: string; imageUrl?: string | null
+  rarity: string; imageUrl?: string | null; spellTarget?: string | null
 }
 
 interface BackendDeckCard { card: BackendCard; quantity: number }
@@ -24,6 +24,7 @@ function mapCard(c: BackendCard): Card {
     effectText: c.effectText ?? undefined,
     rarity: c.rarity as Card['rarity'],
     imageUrl: c.imageUrl ?? undefined,
+    spellTarget: c.spellTarget ?? undefined,
   }
 }
 

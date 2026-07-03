@@ -7,5 +7,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   providers: [PlayerService],
   controllers: [PlayerController],
+  exports: [PlayerService],
 })
 export class PlayerModule {}

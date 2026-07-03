@@ -11,6 +11,7 @@ export interface Card {
   effectText?: string
   rarity: 'common' | 'rare' | 'epic' | 'legendary'
   imageUrl?: string
+  spellTarget?: string
 }
 
 export interface DeckCard {
@@ -57,11 +58,18 @@ export const useDeckStore = create<DeckState>((set, get) => ({
         deckService.getMyDecks(),
         deckService.getAllCards(),
       ])
-      set({
-        decks,
-        allCards: cards,
-        currentDeck: decks[0] ?? null,
-        loading: false,
+      set((s) => {
+        // Conserve le deck actuellement sélectionné s'il existe toujours,
+        // au lieu de retomber systématiquement sur le plus récent.
+        const preserved = s.currentDeck
+          ? decks.find((d) => d.id === s.currentDeck!.id)
+          : undefined
+        return {
+          decks,
+          allCards: cards,
+          currentDeck: preserved ?? decks[0] ?? null,
+          loading: false,
+        }
       })
     } catch (e: any) {
       set({ loading: false, error: e.message })
@@ -106,7 +114,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           ? d.cards.map((dc) => dc.card.id === card.id ? { ...dc, quantity: dc.quantity + 1 } : dc)
           : [...d.cards, { card, quantity: 1 }]
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 10 }
+        return { ...d, cards, isValid: total === 30 }
       }),
       currentDeck: (() => {
         const d = s.currentDeck
@@ -117,11 +125,16 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           ? d.cards.map((dc) => dc.card.id === card.id ? { ...dc, quantity: dc.quantity + 1 } : dc)
           : [...d.cards, { card, quantity: 1 }]
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 10 }
+        return { ...d, cards, isValid: total === 30 }
       })(),
     }))
-    // Persist to backend
-    await deckService.addCardToDeck(deckId, card.id)
+    // Persist to backend ; si le serveur refuse (ex: cap 30 atteint), on resynchronise l'état réel
+    try {
+      await deckService.addCardToDeck(deckId, card.id)
+    } catch (e) {
+      await get().refreshDeck(deckId)
+      throw e
+    }
   },
 
   removeCardFromDeck: async (deckId, cardId) => {
@@ -133,7 +146,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           .map((dc) => dc.card.id === cardId ? { ...dc, quantity: dc.quantity - 1 } : dc)
           .filter((dc) => dc.quantity > 0)
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 10 }
+        return { ...d, cards, isValid: total === 30 }
       }),
       currentDeck: (() => {
         const d = s.currentDeck
@@ -142,10 +155,15 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           .map((dc) => dc.card.id === cardId ? { ...dc, quantity: dc.quantity - 1 } : dc)
           .filter((dc) => dc.quantity > 0)
         const total = cards.reduce((acc, dc) => acc + dc.quantity, 0)
-        return { ...d, cards, isValid: total === 10 }
+        return { ...d, cards, isValid: total === 30 }
       })(),
     }))
-    await deckService.removeCardFromDeck(deckId, cardId)
+    try {
+      await deckService.removeCardFromDeck(deckId, cardId)
+    } catch (e) {
+      await get().refreshDeck(deckId)
+      throw e
+    }
   },
 
   refreshDeck: async (deckId) => {

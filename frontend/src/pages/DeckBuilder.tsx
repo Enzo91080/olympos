@@ -4,6 +4,9 @@ import { useDeckStore } from '../store/deckStore'
 import type { Card } from '../store/deckStore'
 import { useAuthStore } from '../store/authStore'
 import { deckService } from '../services/deckService'
+import OracleModal from '../components/OracleModal'
+
+const ORACLE_UNLOCK_THRESHOLD = 10
 
 const rarityColors: Record<string, string> = {
   common: 'bg-on-surface-variant/30',
@@ -12,7 +15,9 @@ const rarityColors: Record<string, string> = {
   legendary: 'bg-primary',
 }
 
-// Sélectionne 10 cartes équilibrées depuis toutes les cartes disponibles
+const STARTER_DECK_SIZE = 30
+
+// Sélectionne 30 cartes équilibrées depuis toutes les cartes disponibles
 function selectRecommendedCards(allCards: Card[]): { cardId: string; quantity: number }[] {
   const creatures = [...allCards.filter(c => c.cardType === 'creature')].sort((a, b) => a.manaCost - b.manaCost)
   const spells   = [...allCards.filter(c => c.cardType === 'spell')].sort((a, b) => a.manaCost - b.manaCost)
@@ -22,26 +27,28 @@ function selectRecommendedCards(allCards: Card[]): { cardId: string; quantity: n
   let total = 0
 
   const add = (card: Card, qty: number) => {
-    if (total + qty > 10) qty = 10 - total
+    if (total >= STARTER_DECK_SIZE) return
+    if (total + qty > STARTER_DECK_SIZE) qty = STARTER_DECK_SIZE - total
     if (qty <= 0) return
     picks.push({ cardId: card.id, quantity: qty })
     total += qty
   }
 
-  // 3 créatures pas chères (1-2 mana) × 2
-  creatures.filter(c => c.manaCost <= 2).slice(0, 3).forEach(c => add(c, 2))
-  // 1 sort × 2
-  spells.slice(0, 1).forEach(c => add(c, 2))
-  // 1 artefact × 1
-  artifacts.slice(0, 1).forEach(c => add(c, 1))
+  // Créatures peu coûteuses (1-2 mana), doublées
+  creatures.filter(c => c.manaCost <= 2).forEach(c => add(c, 2))
+  // Créatures intermédiaires (3-4 mana), doublées
+  creatures.filter(c => c.manaCost > 2 && c.manaCost <= 4).forEach(c => add(c, 2))
+  // Sorts, doublés
+  spells.forEach(c => add(c, 2))
+  // Artefacts, un exemplaire
+  artifacts.forEach(c => add(c, 1))
 
-  // Compléter jusqu'à 10 si besoin
-  if (total < 10) {
-    creatures.filter(c => c.manaCost <= 3).forEach(c => {
-      if (total >= 10) return
-      if (!picks.find(p => p.cardId === c.id)) add(c, Math.min(2, 10 - total))
-    })
-  }
+  // Compléter jusqu'à 30 si besoin : créatures coûteuses puis second exemplaire des artefacts
+  creatures.filter(c => c.manaCost > 4).forEach(c => add(c, 2))
+  artifacts.forEach(c => {
+    const existing = picks.find(p => p.cardId === c.id)
+    if (existing && existing.quantity < 2) add(c, 1)
+  })
 
   return picks
 }
@@ -68,8 +75,10 @@ export default function DeckBuilder() {
   const [renamingValue, setRenamingValue] = useState('')
   const [saving, setSaving] = useState(false)
   const [buildingStarter, setBuildingStarter] = useState(false)
+  const [oracleOpen, setOracleOpen] = useState(false)
 
   const deckTotal = currentDeck?.cards.reduce((acc, dc) => acc + dc.quantity, 0) ?? 0
+  const oracleUnlocked = deckTotal >= ORACLE_UNLOCK_THRESHOLD
 
   const filteredCards = allCards.filter((c) => {
     if (filterMana !== null && (filterMana === 5 ? c.manaCost >= 5 : c.manaCost !== filterMana)) return false
@@ -82,13 +91,21 @@ export default function DeckBuilder() {
     if (!currentDeck) return
     const existing = currentDeck.cards.find((dc) => dc.card.id === card.id)
     if (existing && existing.quantity >= 2) return
-    if (deckTotal >= 10) return
-    await addCardToDeck(currentDeck.id, card)
+    if (deckTotal >= 30) return
+    try {
+      await addCardToDeck(currentDeck.id, card)
+    } catch {
+      // état déjà resynchronisé avec le serveur par le store
+    }
   }
 
   const handleRemoveCard = async (cardId: string) => {
     if (!currentDeck) return
-    await removeCardFromDeck(currentDeck.id, cardId)
+    try {
+      await removeCardFromDeck(currentDeck.id, cardId)
+    } catch {
+      // état déjà resynchronisé avec le serveur par le store
+    }
   }
 
   const handleCreateDeck = async () => {
@@ -150,7 +167,7 @@ export default function DeckBuilder() {
             >
               {decks.length === 0 && <option value="">Aucun deck</option>}
               {decks.map((d) => (
-                <option key={d.id} value={d.id}>{d.name} ({d.cards.reduce((a, dc) => a + dc.quantity, 0)}/10)</option>
+                <option key={d.id} value={d.id}>{d.name} ({d.cards.reduce((a, dc) => a + dc.quantity, 0)}/30)</option>
               ))}
             </select>
             <button
@@ -162,7 +179,7 @@ export default function DeckBuilder() {
             <button
               onClick={handleCreateStarterDeck}
               disabled={buildingStarter || allCards.length === 0}
-              title="Crée automatiquement un deck de 10 cartes équilibré pour bien commencer"
+              title="Crée automatiquement un deck de 30 cartes équilibré pour bien commencer"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary text-on-secondary text-xs font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {buildingStarter ? (
@@ -193,6 +210,15 @@ export default function DeckBuilder() {
         </div>
 
         <div className="flex items-center gap-4">
+          {currentDeck && oracleUnlocked && (
+            <button
+              onClick={() => setOracleOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-secondary/30 bg-secondary/10 text-secondary text-xs font-bold uppercase tracking-widest hover:bg-secondary/20 transition-all group"
+            >
+              <span className="material-symbols-outlined text-sm group-hover:animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              Consulter l'Oracle
+            </button>
+          )}
           {currentDeck && (
             <div className={`flex items-center px-4 py-1.5 rounded-lg border text-xs font-bold uppercase tracking-widest ${
               currentDeck.isValid
@@ -202,7 +228,7 @@ export default function DeckBuilder() {
               <span className="material-symbols-outlined text-sm mr-2">
                 {currentDeck.isValid ? 'check_circle' : 'error'}
               </span>
-              {currentDeck.isValid ? 'Valide' : `${10 - deckTotal} cartes restantes`}
+              {currentDeck.isValid ? 'Valide' : `${30 - deckTotal} cartes restantes`}
             </div>
           )}
           <div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center border border-primary/30">
@@ -270,10 +296,10 @@ export default function DeckBuilder() {
           <div className="p-6 border-b border-outline-variant/20">
             <div className="flex justify-between items-end mb-3">
               <h2 className="font-headline text-xl text-primary">{currentDeck?.name ?? 'Sélectionner un deck'}</h2>
-              <span className="text-sm font-bold text-on-surface-variant">{deckTotal} / 10</span>
+              <span className="text-sm font-bold text-on-surface-variant">{deckTotal} / 30</span>
             </div>
             <div className="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
-              <div className="h-full bg-secondary relative transition-all duration-500" style={{ width: `${(deckTotal / 10) * 100}%` }}>
+              <div className="h-full bg-secondary relative transition-all duration-500" style={{ width: `${(deckTotal / 30) * 100}%` }}>
                 <div className="absolute right-0 top-0 h-full w-2 bg-white/40 blur-sm animate-pulse"></div>
               </div>
             </div>
@@ -308,10 +334,10 @@ export default function DeckBuilder() {
                 </div>
               </div>
             ))}
-            {currentDeck && deckTotal < 10 && (
+            {currentDeck && deckTotal < 30 && (
               <div className="p-3 rounded border border-dashed border-outline-variant/30 flex items-center justify-center mt-2">
                 <span className="text-[10px] uppercase tracking-widest text-outline">
-                  {10 - deckTotal} carte{10 - deckTotal > 1 ? 's' : ''} manquante{10 - deckTotal > 1 ? 's' : ''}
+                  {30 - deckTotal} carte{30 - deckTotal > 1 ? 's' : ''} manquante{30 - deckTotal > 1 ? 's' : ''}
                 </span>
               </div>
             )}
@@ -373,7 +399,7 @@ export default function DeckBuilder() {
               {filteredCards.map((card) => {
                 const inDeck = currentDeck?.cards.find((dc) => dc.card.id === card.id)
                 const maxed = inDeck && inDeck.quantity >= 2
-                const deckFull = deckTotal >= 10
+                const deckFull = deckTotal >= 30
 
                 return (
                   <div
@@ -479,6 +505,8 @@ export default function DeckBuilder() {
           </div>
         </section>
       </div>
+
+      {oracleOpen && <OracleModal onClose={() => setOracleOpen(false)} />}
     </div>
   )
 }

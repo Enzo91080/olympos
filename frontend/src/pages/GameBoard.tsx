@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useGameStore } from '../store/gameStore'
 import type { GameCard } from '../store/gameStore'
@@ -47,9 +48,18 @@ function FieldSlot({
             : 'border-2 border-dashed border-outline-variant/20 bg-surface-container-low/30'
         }`}
       onClick={canClick || isTargetable ? (isPlayer ? onSelect : onTarget) : undefined}
+      style={{ perspective: 600 }}
     >
+      <AnimatePresence mode="popLayout">
       {card && (
-        <div className="h-full flex flex-col relative">
+        <motion.div
+          key={card.instanceId}
+          className="h-full flex flex-col relative"
+          initial={{ opacity: 0, scale: 0.4, rotateY: -110 }}
+          animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+          exit={{ opacity: 0, scale: 0.3, rotateY: 110 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        >
           <div className="absolute inset-0 bg-surface-container-high opacity-70 flex items-center justify-center">
             {card.imageUrl
               ? <img src={card.imageUrl} alt={card.name} className="w-full h-full object-cover" />
@@ -97,8 +107,9 @@ function FieldSlot({
               <div className="w-3 h-3 rounded-full bg-outline-variant/60"></div>
             </div>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -528,6 +539,7 @@ export default function GameBoard() {
           {/* Player Hand */}
           <div className="relative w-full max-w-4xl flex justify-center h-48 mt-4">
             <div className="absolute bottom-0 flex items-end pb-2" style={{ gap: '8px' }}>
+              <AnimatePresence mode="popLayout">
               {player.hand.map((card, i) => {
                 const fanAngles = [-10, -5, 0, 5, 10, 15, -15]
                 const fanY = [10, 2, -5, 2, 10, 16, 16]
@@ -541,25 +553,31 @@ export default function GameBoard() {
                 const isPlayable = canAfford && spellOk
 
                 return (
-                  <div
+                  <motion.div
                     key={card.instanceId}
-                    className={`w-28 h-40 rounded-lg border-2 relative cursor-pointer transition-all duration-200
+                    layout
+                    initial={{ opacity: 0, y: 90, scale: 0.6, rotate: 0 }}
+                    animate={{
+                      opacity: 1,
+                      scale: isSelected ? 1.1 : 1,
+                      y: isSelected ? -32 : (fanY[i] ?? 0),
+                      rotate: isSelected ? 0 : (fanAngles[i] ?? 0),
+                    }}
+                    exit={{ opacity: 0, y: -70, scale: 0.6, transition: { duration: 0.25 } }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+                    whileHover={isPlayable && !isSelected ? { y: (fanY[i] ?? 0) - 24, scale: 1.05, zIndex: 40 } : undefined}
+                    className={`w-28 h-40 rounded-lg border-2 relative cursor-pointer
                       ${isSelected
-                        ? 'border-primary shadow-[0_0_25px_rgba(230,195,100,0.7)] -translate-y-8 scale-110 z-50'
+                        ? 'border-primary shadow-[0_0_25px_rgba(230,195,100,0.7)]'
                         : isBest
-                          ? 'border-primary shadow-[0_0_20px_rgba(230,195,100,0.6),0_0_40px_rgba(230,195,100,0.3)] animate-pulse hover:-translate-y-6 hover:scale-105 hover:z-40'
+                          ? 'border-primary shadow-[0_0_20px_rgba(230,195,100,0.6),0_0_40px_rgba(230,195,100,0.3)] animate-pulse hover:border-primary'
                           : isPlayable
-                            ? 'border-primary/40 hover:border-primary hover:-translate-y-6 hover:scale-105 hover:z-40'
+                            ? 'border-primary/40 hover:border-primary'
                             : canAfford
                               ? 'border-error/20 opacity-40 cursor-not-allowed'
                               : 'border-outline-variant/20 opacity-50 cursor-not-allowed'
                       } bg-surface-container-highest`}
-                    style={{
-                      transform: isSelected
-                        ? 'translateY(-32px) scale(1.1)'
-                        : `rotate(${fanAngles[i] ?? 0}deg) translateY(${fanY[i] ?? 0}px)`,
-                      zIndex: isSelected ? 50 : i + 10,
-                    }}
+                    style={{ zIndex: isSelected ? 50 : i + 10 }}
                     onClick={() => isPlayable && isPlayerTurn && selectHandCard(i)}
                   >
                     {isBest && (
@@ -604,9 +622,10 @@ export default function GameBoard() {
                         )}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )
               })}
+              </AnimatePresence>
             </div>
           </div>
         </div>

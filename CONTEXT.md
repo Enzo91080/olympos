@@ -340,16 +340,15 @@ VITE_USE_MOCK=true
 ## État d'avancement
 
 ### ✅ Terminé
-- Document d'intention
-- MCD (Mocodo)
-- MLD (draw.io)
+- Document de cadrage (MCD, MLD, MPD)
 - Fichier CONTEXT.md
 - Design system Stitch (4 pages + DESIGN.md dans /design)
+- Backend NestJS complet (Auth JWT, Player, Card, Deck, Game, Matchmaking, Gateway WebSocket, Oracle IA)
+- Frontend React complet (Login/Register, Dashboard, Deck Builder, Game Board, Leaderboard, History)
+- Mode solo (bot) et mode PvP (matchmaking ELO)
+- Fonctionnalité IA Oracle (Ollama + streaming SSE)
 
-### 🔄 En cours
-- Backend NestJS (initialisation)
-
-### ⏳ À faire
-- Frontend React
-- Tests
-- Déploiement
+### ⏳ À faire (voir README — section Limites & pistes d'amélioration)
+- Tests end-to-end (HTTP + WebSocket)
+- Déploiement (Railway / Vercel) — le projet tourne actuellement en local uniquement
+- Fonctionnalités "Nice to have" : boutique de cartes, mode spectateur

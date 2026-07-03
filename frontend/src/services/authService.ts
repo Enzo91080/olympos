@@ -8,6 +8,7 @@ export interface AuthResponse { player: Player; token: string }
 async function fetchMe(token: string): Promise<Player> {
   const { data } = await api.get<{
     id: string; username: string; email: string; eloScore: number; avatarUrl?: string
+    role?: 'player' | 'admin'
   }>('/players/me', { headers: { Authorization: `Bearer ${token}` } })
   return {
     id: data.id,
@@ -16,6 +17,7 @@ async function fetchMe(token: string): Promise<Player> {
     eloScore: data.eloScore,
     avatarUrl: data.avatarUrl,
     rank: eloToRank(data.eloScore),
+    role: data.role ?? 'player',
   }
 }
 
@@ -45,5 +47,13 @@ export const authService = {
     const raw = localStorage.getItem('olympos-auth')
     const token = raw ? JSON.parse(raw)?.state?.token : null
     return fetchMe(token)
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    await api.post('/auth/forgot-password', { email })
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    await api.post('/auth/reset-password', { token, newPassword })
   },
 }

@@ -1,7 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
-import OracleModal from '../OracleModal'
 
 const navItems = [
   { label: 'Accueil', icon: 'swords', to: '/dashboard' },
@@ -13,7 +11,7 @@ const navItems = [
 export default function Sidebar() {
   const { player, logout } = useAuthStore()
   const navigate = useNavigate()
-  const [oracleOpen, setOracleOpen] = useState(false)
+  const isAdmin = player?.role === 'admin'
 
   const handleLogout = () => {
     logout()
@@ -21,7 +19,6 @@ export default function Sidebar() {
   }
 
   return (
-    <>
     <aside className="fixed left-0 top-0 h-screen w-64 flex flex-col z-40 bg-surface shadow-[10px_0_30px_rgba(10,14,26,0.5)] font-headline font-medium">
       <div className="px-8 py-10">
         <h1 className="text-xl font-black text-primary-container tracking-tighter">OLYMPOS</h1>
@@ -42,6 +39,19 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        {isAdmin && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              isActive
+                ? 'flex items-center gap-4 px-4 py-3 bg-[#2d1b69]/40 text-secondary border-r-4 border-secondary backdrop-blur-md transition-all duration-300'
+                : 'flex items-center gap-4 px-4 py-3 text-secondary/70 hover:bg-surface-container-low hover:text-secondary hover:translate-x-2 transition-all duration-300'
+            }
+          >
+            <span className="material-symbols-outlined">shield_person</span>
+            <span>Admin</span>
+          </NavLink>
+        )}
       </nav>
 
       <div className="p-6 mt-auto">
@@ -57,13 +67,6 @@ export default function Sidebar() {
 
         <div className="space-y-1">
           <button
-            onClick={() => setOracleOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-2 text-surface-variant hover:text-secondary transition-colors group"
-          >
-            <span className="material-symbols-outlined text-sm group-hover:animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-            <span className="text-xs uppercase tracking-widest">Oracle</span>
-          </button>
-          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-2 text-surface-variant hover:text-error transition-colors"
           >
@@ -73,8 +76,5 @@ export default function Sidebar() {
         </div>
       </div>
     </aside>
-
-    {oracleOpen && <OracleModal onClose={() => setOracleOpen(false)} />}
-    </>
   )
 }

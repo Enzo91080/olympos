@@ -24,6 +24,6 @@ export interface GameState {
   currentTurnPlayerId: string;
   turnNumber: number;
   connectedPlayers: string[];
-  status: 'waiting_players' | 'in_progress' | 'finished';
+  status: 'waiting_players' | 'in_progress' | 'finished' | 'abandoned';
   winnerId?: string;
 }

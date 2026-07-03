@@ -3,9 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ServiceUnavailableException,
   Inject,
   GoneException,
 } from '@nestjs/common';
+import { v4 as uuid } from 'uuid';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +16,7 @@ import { EloService } from './elo.service';
 import { GameState } from './game-state.interface';
 
 const GAME_STATE_TTL = 600; // 10 minutes
+const LOCK_TTL_MS = 3000;   // 3 secondes max par action
 
 @Injectable()
 export class GameService {
@@ -32,8 +35,8 @@ export class GameService {
       this.prisma.deck.findUnique({ where: { id: deck2Id }, include: { deckCards: true } }),
     ]);
 
-    if (!deck1 || !deck1.isValid) throw new BadRequestException('Deck 1 is not valid (need 10 cards)');
-    if (!deck2 || !deck2.isValid) throw new BadRequestException('Deck 2 is not valid (need 10 cards)');
+    if (!deck1 || !deck1.isValid) throw new BadRequestException('Deck 1 is not valid (need 30 cards)');
+    if (!deck2 || !deck2.isValid) throw new BadRequestException('Deck 2 is not valid (need 30 cards)');
 
     const game = await this.prisma.game.create({
       data: { player1Id, player2Id, deck1Id, deck2Id, status: 'waiting' },
@@ -105,6 +108,25 @@ export class GameService {
     await this.redis.del(`game:state:${gameId}`);
   }
 
+  // ─── Verrou Redis (I13) ─────────────────────────────────────────────────────
+  // Garantit qu'une seule action à la fois modifie l'état d'une partie donnée.
+
+  private async withLock<T>(gameId: string, fn: () => Promise<T>): Promise<T> {
+    const lockKey = `game:lock:${gameId}`;
+    const lockValue = uuid();
+    const acquired = await this.redis.set(lockKey, lockValue, 'PX', LOCK_TTL_MS, 'NX');
+    if (!acquired) {
+      throw new ServiceUnavailableException('Action in progress — please retry');
+    }
+    try {
+      return await fn();
+    } finally {
+      // Supprime uniquement si c'est toujours notre verrou (script atomique)
+      const luaScript = `if redis.call('get',KEYS[1])==ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end`;
+      await this.redis.eval(luaScript, 1, lockKey, lockValue);
+    }
+  }
+
   // ─── Actions de jeu ─────────────────────────────────────────────────────────
 
   async joinGame(gameId: string, playerId: string): Promise<GameState> {
@@ -141,18 +163,55 @@ export class GameService {
     return state;
   }
 
-  async playCard(gameId: string, playerId: string, cardId: string): Promise<GameState> {
-    const state = await this.getState(gameId);
-    let newState = await this.engine.playCard(state, playerId, cardId);
+  async playCreature(gameId: string, playerId: string, cardId: string): Promise<GameState> {
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      let newState = await this.engine.playCreature(state, playerId, cardId);
+      const { isOver, winnerId } = this.engine.checkVictory(newState);
+      if (isOver && winnerId) {
+        newState = { ...newState, status: 'finished', winnerId };
+        await this.finalizeGame(gameId, winnerId, 'defeat', newState);
+      } else {
+        await this.saveState(gameId, newState);
+      }
+      return newState;
+    });
+  }
 
-    const { isOver, winnerId } = this.engine.checkVictory(newState);
-    if (isOver && winnerId) {
-      newState = { ...newState, status: 'finished', winnerId };
-      await this.finalizeGame(gameId, winnerId, 'defeat', newState);
-    } else {
-      await this.saveState(gameId, newState);
-    }
-    return newState;
+  async playSpellAuto(gameId: string, playerId: string, cardId: string): Promise<GameState> {
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      let newState = await this.engine.playSpellAuto(state, playerId, cardId);
+      const { isOver, winnerId } = this.engine.checkVictory(newState);
+      if (isOver && winnerId) {
+        newState = { ...newState, status: 'finished', winnerId };
+        await this.finalizeGame(gameId, winnerId, 'defeat', newState);
+      } else {
+        await this.saveState(gameId, newState);
+      }
+      return newState;
+    });
+  }
+
+  async playSpellTargeted(
+    gameId: string,
+    playerId: string,
+    cardId: string,
+    targetId: string,
+    targetType: 'creature' | 'hero',
+  ): Promise<GameState> {
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      let newState = await this.engine.playSpellTargeted(state, playerId, cardId, targetId, targetType);
+      const { isOver, winnerId } = this.engine.checkVictory(newState);
+      if (isOver && winnerId) {
+        newState = { ...newState, status: 'finished', winnerId };
+        await this.finalizeGame(gameId, winnerId, 'defeat', newState);
+      } else {
+        await this.saveState(gameId, newState);
+      }
+      return newState;
+    });
   }
 
   async attackCreature(
@@ -161,57 +220,54 @@ export class GameService {
     attackerInstanceId: string,
     targetInstanceId: string,
   ): Promise<GameState> {
-    const state = await this.getState(gameId);
-    let newState = this.engine.attackCreature(state, playerId, attackerInstanceId, targetInstanceId);
-
-    const { isOver, winnerId } = this.engine.checkVictory(newState);
-    if (isOver && winnerId) {
-      newState = { ...newState, status: 'finished', winnerId };
-      await this.finalizeGame(gameId, winnerId, 'defeat', newState);
-    } else {
-      await this.saveState(gameId, newState);
-    }
-    return newState;
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      let newState = this.engine.attackCreature(state, playerId, attackerInstanceId, targetInstanceId);
+      const { isOver, winnerId } = this.engine.checkVictory(newState);
+      if (isOver && winnerId) {
+        newState = { ...newState, status: 'finished', winnerId };
+        await this.finalizeGame(gameId, winnerId, 'defeat', newState);
+      } else {
+        await this.saveState(gameId, newState);
+      }
+      return newState;
+    });
   }
 
-  async attackPlayer(
-    gameId: string,
-    playerId: string,
-    attackerInstanceId: string,
-  ): Promise<GameState> {
-    const state = await this.getState(gameId);
-    let newState = this.engine.attackPlayer(state, playerId, attackerInstanceId);
-
-    const { isOver, winnerId } = this.engine.checkVictory(newState);
-    if (isOver && winnerId) {
-      newState = { ...newState, status: 'finished', winnerId };
-      await this.finalizeGame(gameId, winnerId, 'defeat', newState);
-    } else {
-      await this.saveState(gameId, newState);
-    }
-    return newState;
+  async attackPlayer(gameId: string, playerId: string, attackerInstanceId: string): Promise<GameState> {
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      let newState = this.engine.attackPlayer(state, playerId, attackerInstanceId);
+      const { isOver, winnerId } = this.engine.checkVictory(newState);
+      if (isOver && winnerId) {
+        newState = { ...newState, status: 'finished', winnerId };
+        await this.finalizeGame(gameId, winnerId, 'defeat', newState);
+      } else {
+        await this.saveState(gameId, newState);
+      }
+      return newState;
+    });
   }
 
   async endTurn(gameId: string, playerId: string): Promise<GameState> {
-    const state = await this.getState(gameId);
-
-    if (state.currentTurnPlayerId !== playerId) {
-      throw new ForbiddenException('Not your turn');
-    }
-
-    const opponent = this.engine.getOpponent(state, playerId);
-    const newState = this.engine.startTurn(state, opponent.playerId);
-    await this.saveState(gameId, newState);
-    return newState;
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      if (state.currentTurnPlayerId !== playerId) throw new ForbiddenException('Not your turn');
+      const opponent = this.engine.getOpponent(state, playerId);
+      const newState = this.engine.startTurn(state, opponent.playerId);
+      await this.saveState(gameId, newState);
+      return newState;
+    });
   }
 
   async surrender(gameId: string, playerId: string): Promise<GameState> {
-    const state = await this.getState(gameId);
-    const opponent = this.engine.getOpponent(state, playerId);
-
-    const finished: GameState = { ...state, status: 'finished', winnerId: opponent.playerId };
-    await this.finalizeGame(gameId, opponent.playerId, 'surrender', finished);
-    return finished;
+    return this.withLock(gameId, async () => {
+      const state = await this.getState(gameId);
+      const opponent = this.engine.getOpponent(state, playerId);
+      const finished: GameState = { ...state, status: 'finished', winnerId: opponent.playerId };
+      await this.finalizeGame(gameId, opponent.playerId, 'surrender', finished);
+      return finished;
+    });
   }
 
   // ─── Fin de partie + ELO ───────────────────────────────────────────────────
@@ -280,7 +336,7 @@ export class GameService {
       include: { deckCards: true },
     });
     if (!playerDeck) throw new NotFoundException('Deck not found');
-    if (!playerDeck.isValid) throw new BadRequestException('Your deck needs exactly 10 cards to play');
+    if (!playerDeck.isValid) throw new BadRequestException('Your deck needs exactly 30 cards to play');
 
     const game = await this.prisma.game.create({
       data: {
@@ -387,5 +443,46 @@ export class GameService {
 
   async forfeitExpired(gameId: string, connectedPlayerId: string): Promise<void> {
     await this.finalizeGame(gameId, connectedPlayerId, 'timeout');
+  }
+
+  // ─── Admin ──────────────────────────────────────────────────────────────
+
+  adminListAll(limit = 200) {
+    return this.prisma.game.findMany({
+      orderBy: { startedAt: 'desc' },
+      take: limit,
+      include: {
+        player1: { select: { id: true, username: true, eloScore: true } },
+        player2: { select: { id: true, username: true, eloScore: true } },
+        winner: { select: { id: true, username: true } },
+      },
+    });
+  }
+
+  async adminFindOne(id: string) {
+    const game = await this.prisma.game.findUnique({
+      where: { id },
+      include: {
+        player1: { select: { id: true, username: true, eloScore: true } },
+        player2: { select: { id: true, username: true, eloScore: true } },
+        winner: { select: { id: true, username: true } },
+        actions: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+    if (!game) throw new NotFoundException('Game not found');
+    return game;
+  }
+
+  async adminForceAbandon(gameId: string) {
+    const game = await this.prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) throw new NotFoundException('Game not found');
+    if (game.status === 'finished' || game.status === 'abandoned') return game;
+
+    const updated = await this.prisma.game.update({
+      where: { id: gameId },
+      data: { status: 'abandoned', endedAt: new Date() },
+    });
+    await this.delState(gameId);
+    return updated;
   }
 }

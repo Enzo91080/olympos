@@ -65,8 +65,12 @@ export const gameSocket = {
     socket?.emit('join_game', { gameId })
   },
 
-  playCard(gameId: string, cardId: string): void {
-    socket?.emit('play_card', { gameId, cardId })
+  playCard(
+    gameId: string,
+    cardId: string,
+    target?: { targetId: string; targetType: 'creature' | 'hero' },
+  ): void {
+    socket?.emit('play_card', { gameId, cardId, ...target })
   },
 
   attack(gameId: string, data: {

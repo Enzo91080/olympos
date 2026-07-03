@@ -167,24 +167,48 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // ─── play_card ─────────────────────────────────────────────────────────────
+  // Payload :
+  //   { gameId, cardId }                                      → créature ou sort auto
+  //   { gameId, cardId, targetId, targetType: 'creature'|'hero' } → sort ciblé
 
   @SubscribeMessage('play_card')
   async handlePlayCard(
-    @MessageBody() data: { gameId: string; cardId: string },
+    @MessageBody() data: {
+      gameId: string;
+      cardId: string;
+      targetId?: string;
+      targetType?: 'creature' | 'hero';
+    },
     @ConnectedSocket() client: Socket,
   ) {
     const session = this.sessions.get(client.id);
     if (!session) return;
 
     try {
-      const state = await this.gameService.playCard(data.gameId, session.playerId, data.cardId);
-      this.server.to(`game:${data.gameId}`).emit('game_state', state);
+      let state;
 
+      if (data.targetId && data.targetType) {
+        // Sort ciblé
+        state = await this.gameService.playSpellTargeted(
+          data.gameId, session.playerId, data.cardId, data.targetId, data.targetType,
+        );
+      } else {
+        // Créature ou sort auto — le moteur distingue les deux
+        try {
+          state = await this.gameService.playCreature(data.gameId, session.playerId, data.cardId);
+        } catch (creatureErr: any) {
+          // Si ce n'est pas une créature, essayer comme sort auto
+          if (creatureErr?.message === 'Card is not a creature') {
+            state = await this.gameService.playSpellAuto(data.gameId, session.playerId, data.cardId);
+          } else {
+            throw creatureErr;
+          }
+        }
+      }
+
+      this.server.to(`game:${data.gameId}`).emit('game_state', state);
       if (state.status === 'finished') {
-        this.server.to(`game:${data.gameId}`).emit('game_over', {
-          winnerId: state.winnerId,
-          reason: 'defeat',
-        });
+        this.server.to(`game:${data.gameId}`).emit('game_over', { winnerId: state.winnerId, reason: 'defeat' });
       }
     } catch (e: any) {
       client.emit('error', { message: e.message });

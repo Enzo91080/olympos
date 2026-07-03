@@ -37,7 +37,7 @@ export default function Dashboard() {
       return
     }
     if (!currentDeck.isValid) {
-      setPvpError(`Ton deck doit contenir exactement 10 cartes (${deckCount}/10).`)
+      setPvpError(`Ton deck doit contenir exactement 30 cartes (${deckCount}/30).`)
       return
     }
     setPvpError(null)
@@ -93,7 +93,7 @@ export default function Dashboard() {
       return
     }
     if (!currentDeck.isValid) {
-      setMatchError(`Ton deck doit contenir exactement 10 cartes (${deckCount}/10).`)
+      setMatchError(`Ton deck doit contenir exactement 30 cartes (${deckCount}/30).`)
       return
     }
 
@@ -315,9 +315,9 @@ export default function Dashboard() {
                     <h4 className="font-headline text-xl text-on-surface mb-2">{currentDeck.name}</h4>
                     <div className="flex items-center gap-2 mb-3">
                       <div className="flex-1 h-2 bg-surface-container-lowest rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(deckCount / 10) * 100}%` }} />
+                        <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${(deckCount / 30) * 100}%` }} />
                       </div>
-                      <span className={`text-xs font-bold ${currentDeck.isValid ? 'text-primary' : 'text-error'}`}>{deckCount}/10</span>
+                      <span className={`text-xs font-bold ${currentDeck.isValid ? 'text-primary' : 'text-error'}`}>{deckCount}/30</span>
                     </div>
                     <button
                       onClick={() => navigate('/deck-builder')}

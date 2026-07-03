@@ -62,8 +62,8 @@ export class DeckService {
     if (deck.playerId !== playerId) throw new ForbiddenException();
 
     const totalCards = deck.deckCards.reduce((sum, dc) => sum + dc.quantity, 0);
-    if (totalCards + quantity > 10)
-      throw new BadRequestException('Deck cannot exceed 10 cards');
+    if (totalCards + quantity > 30)
+      throw new BadRequestException('Deck cannot exceed 30 cards');
 
     const existing = deck.deckCards.find((dc) => dc.cardId === cardId);
     if (existing) {
@@ -101,7 +101,7 @@ export class DeckService {
     const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
     await this.prisma.deck.update({
       where: { id: deckId },
-      data: { isValid: total === 10 },
+      data: { isValid: total === 30 },
     });
   }
 }

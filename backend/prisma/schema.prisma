@@ -13,9 +13,13 @@ model Player {
   email        String   @unique
   passwordHash String
   eloScore     Int      @default(1000)
-  avatarUrl    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         String   @default("player")
+  isBanned     Boolean  @default(false)
+  avatarUrl              String?
+  passwordResetToken     String?
+  passwordResetExpiresAt DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   decks             Deck[]
   gamesAsPlayer1    Game[]            @relation("Player1Games")
@@ -118,4 +122,17 @@ model MatchmakingQueue {
   joinedAt DateTime @default(now())
 
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+// Pas de relation FK vers Player : champs acteur dénormalisés pour ne pas
+// entremêler la traçabilité admin avec le cycle de vie (suppression) des comptes.
+model AdminAuditLog {
+  id            String   @id @default(uuid())
+  actorId       String
+  actorUsername String
+  action        String
+  targetType    String
+  targetId      String
+  metadata      Json?
+  createdAt     DateTime @default(now())
 }
