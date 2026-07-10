@@ -20,7 +20,7 @@ Projet : Olympos Card Clash — Enzo Aime — M2 Dev Ynov Connect
 
 **Le bot solo est rudimentaire** : il pose la carte la moins chère et attaque systématiquement. Suffisant pour tester, pas pour intéresser un joueur.
 
-**Des optimisations restent en attente** — détaillées dans `docs/RAPPORT_AUDIT.md` : code splitting par route, index BDD sur les colonnes de filtrage, `coverage/` à sortir du dépôt.
+**Des optimisations restent en attente** — détaillées dans `docs/RAPPORT_AUDIT.md` : code splitting par route, index BDD sur les colonnes de filtrage, lazy-loading des images de cartes (le poids a été réduit de 77 % mais les 37 images se chargent toujours d'un coup, LCP mesuré à 129 s sous Lighthouse).
 
 **Dépendance à un service local pour l'IA.** Sans Ollama lancé, l'Oracle renvoie une 503. Le choix est assumé (gratuit, pas de clé API à gérer, pas de données envoyées à un tiers), mais il complique la démo sur une autre machine.
 
