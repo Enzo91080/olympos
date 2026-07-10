@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDeckStore } from '../store/deckStore'
 import type { Card } from '../store/deckStore'
-import { useAuthStore } from '../store/authStore'
 import { deckService } from '../services/deckService'
 import OracleModal from '../components/OracleModal'
 
@@ -55,7 +54,6 @@ function selectRecommendedCards(allCards: Card[]): { cardId: string; quantity: n
 
 export default function DeckBuilder() {
   const navigate = useNavigate()
-  const { player } = useAuthStore()
   const {
     decks, currentDeck, allCards, loading,
     selectDeck, createDeck, renameDeck, deleteDeck,

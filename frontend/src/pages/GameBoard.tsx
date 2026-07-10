@@ -124,7 +124,7 @@ export default function GameBoard() {
     player, enemy, turn, battleLog, isPlayerTurn, winner, status,
     selectedHandIndex, selectedFieldIndex,
     gameId: storeGameId, botId,
-    mode, pvpMyPlayerId,
+    mode,
     selectHandCard, playCard, castSpell, selectFieldCard, attackEnemy, endTurn, reset,
     applyServerState, applyGameOver, clearSelection,
   } = useGameStore()
@@ -144,7 +144,7 @@ export default function GameBoard() {
   useEffect(() => {
     if (!isPvp || !storeGameId) return
 
-    const sock = gameSocket.connect(token ?? '')
+    gameSocket.connect(token ?? '')
 
     gameSocket.onGameState((state: any) => {
       applyServerState(state)
