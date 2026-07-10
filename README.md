@@ -18,11 +18,15 @@ Jeu de cartes stratégique 1v1 inspiré de la mythologie grecque. Construis ton 
 
 | Livrable | Emplacement |
 |----------|-------------|
-| Document de cadrage (intention, wireframes, MCD/MLD/MPD, stack, IA) | `aime-enzo-m2-dev-ynov-connect-olympos-v2.pdf` |
+| Document de cadrage (intention, wireframes, MCD/MLD/MPD, stack, IA) | [`docs/aime-enzo-m2-dev-ynov-connect-olympos-v2.pdf`](docs/aime-enzo-m2-dev-ynov-connect-olympos-v2.pdf) |
+| Grille d'évaluation officielle du module | [`docs/Document de cadrage - Coord dev Front  Back - M2 DEV-F YC.md`](docs/Document%20de%20cadrage%20-%20Coord%20dev%20Front%20%20Back%20-%20M2%20DEV-F%20YC.md) |
 | Doc technique & déploiement | ce README |
-| Rapport d'audit (Activité 8) | `docs/RAPPORT_AUDIT.md` |
-| Analyse critique & feuille de route (Activité 10) | `docs/ANALYSE_CRITIQUE.md` |
-| Wireframes & design system | `design/` |
+| Rapport d'audit (Activité 8) | [`docs/RAPPORT_AUDIT.md`](docs/RAPPORT_AUDIT.md) |
+| Analyse critique & feuille de route (Activité 10) | [`docs/ANALYSE_CRITIQUE.md`](docs/ANALYSE_CRITIQUE.md) |
+| Détail des activités du module (énoncés) | [`docs/Activité.md`](docs/Activité.md) |
+| Guide de jeu (règles détaillées, joueur) | [`docs/GAME_GUIDE.md`](docs/GAME_GUIDE.md) |
+| Wireframes & design system | [`design/`](design/) — voir [`design/aura_of_olympus/DESIGN.md`](design/aura_of_olympus/DESIGN.md) |
+| Prompts de génération des illustrations de cartes | [`design/CARD_PROMPTS.md`](design/CARD_PROMPTS.md) |
 
 ---
 
