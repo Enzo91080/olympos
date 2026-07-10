@@ -123,7 +123,7 @@ L'Oracle n'a pas de variable : le backend appelle Ollama sur son URL par défaut
 
 | Fonctionnalité | Description |
 |----------------|-------------|
-| Compte joueur | Inscription · Connexion · Mot de passe oublié (email) |
+| Compte joueur | Inscription · Connexion · Mot de passe oublié (email) · Édition du profil (username, avatar) |
 | Construction de deck | Multi-decks · Validation automatique · Auto-starter deck |
 | Mode Solo | Partie contre un bot (IA locale) |
 | Mode PvP | Matchmaking automatique ELO ±200 |

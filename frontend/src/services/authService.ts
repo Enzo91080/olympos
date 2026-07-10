@@ -49,6 +49,11 @@ export const authService = {
     return fetchMe(token)
   },
 
+  async updateProfile(payload: { username?: string; avatarUrl?: string }): Promise<Partial<Player>> {
+    const { data } = await api.patch<{ username: string; avatarUrl?: string }>('/players/me', payload)
+    return { username: data.username, avatarUrl: data.avatarUrl }
+  },
+
   async forgotPassword(email: string): Promise<void> {
     await api.post('/auth/forgot-password', { email })
   },

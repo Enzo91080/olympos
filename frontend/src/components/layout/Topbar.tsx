@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import ProfileModal from '../ProfileModal'
 
 interface TopbarProps {
   title?: string
@@ -8,6 +10,7 @@ interface TopbarProps {
 
 export default function Topbar({ title = 'Olympos: Card Clash', showNav = true }: TopbarProps) {
   const { player } = useAuthStore()
+  const [showProfile, setShowProfile] = useState(false)
 
   return (
     <header className="flex justify-between items-center w-full px-8 py-4 sticky top-0 z-50 bg-surface-container-lowest shadow-[0_4px_20px_rgba(51,34,111,0.08)] font-headline tracking-wider">
@@ -60,10 +63,20 @@ export default function Topbar({ title = 'Olympos: Card Clash', showNav = true }
         <button className="p-2 text-primary-container hover:bg-surface-container-low rounded-full transition-all duration-300">
           <span className="material-symbols-outlined">settings</span>
         </button>
-        <div className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center border border-primary/20">
-          <span className="material-symbols-outlined text-primary">person</span>
-        </div>
+        <button
+          onClick={() => setShowProfile(true)}
+          title={player ? `${player.username} — modifier le profil` : 'Profil'}
+          className="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center border border-primary/20 overflow-hidden hover:ring-2 hover:ring-primary/40 transition-all"
+        >
+          {player?.avatarUrl ? (
+            <img src={player.avatarUrl} alt={player.username} className="w-full h-full object-cover" />
+          ) : (
+            <span className="material-symbols-outlined text-primary">person</span>
+          )}
+        </button>
       </div>
+
+      {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
     </header>
   )
 }

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
+import ProfileModal from '../ProfileModal'
 
 const navItems = [
   { label: 'Accueil', icon: 'swords', to: '/dashboard' },
@@ -12,6 +14,7 @@ export default function Sidebar() {
   const { player, logout } = useAuthStore()
   const navigate = useNavigate()
   const isAdmin = player?.role === 'admin'
+  const [showProfile, setShowProfile] = useState(false)
 
   const handleLogout = () => {
     logout()
@@ -55,15 +58,26 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-6 mt-auto">
-        <div className="bg-surface-container-low p-4 rounded-lg flex items-center gap-3 shadow-2xl mb-6">
-          <div className="w-10 h-10 rounded-full border-2 border-primary bg-surface-container-highest flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary text-xl">person</span>
+        <button
+          onClick={() => setShowProfile(true)}
+          title="Modifier mon profil"
+          className="w-full bg-surface-container-low p-4 rounded-lg flex items-center gap-3 shadow-2xl mb-6 text-left hover:bg-surface-container-high hover:ring-1 hover:ring-primary/40 transition-all group"
+        >
+          <div className="w-10 h-10 rounded-full border-2 border-primary bg-surface-container-highest flex items-center justify-center overflow-hidden shrink-0">
+            {player?.avatarUrl ? (
+              <img src={player.avatarUrl} alt={player.username} className="w-full h-full object-cover" />
+            ) : (
+              <span className="material-symbols-outlined text-primary text-xl">person</span>
+            )}
           </div>
-          <div>
-            <p className="text-sm font-bold text-primary">{player?.username || 'Héros'}</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-primary truncate">{player?.username || 'Héros'}</p>
             <p className="text-[10px] text-surface-variant uppercase tracking-widest">Rang : {player?.rank || 'Mortel'}</p>
           </div>
-        </div>
+          <span className="material-symbols-outlined text-surface-variant text-sm opacity-0 group-hover:opacity-100 transition-opacity">edit</span>
+        </button>
+
+        {showProfile && <ProfileModal onClose={() => setShowProfile(false)} />}
 
         <div className="space-y-1">
           <button
