@@ -73,7 +73,9 @@ export class GameService {
     return game;
   }
 
-  async getHistory(playerId: string) {
+  async getHistory(playerId: string, limit = 50) {
+    // Borne la requête : sans `take`, l'historique complet était chargé
+    // à chaque appel (croissance linéaire avec le nombre de parties).
     return this.prisma.game.findMany({
       where: {
         OR: [{ player1Id: playerId }, { player2Id: playerId }],
@@ -85,6 +87,7 @@ export class GameService {
         winner: { select: { id: true, username: true } },
       },
       orderBy: { endedAt: 'desc' },
+      take: limit,
     });
   }
 

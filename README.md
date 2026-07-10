@@ -14,53 +14,108 @@ Jeu de cartes stratégique 1v1 inspiré de la mythologie grecque. Construis ton 
 
 ---
 
-## Installation & Lancement
+## Livrables du module
+
+| Livrable | Emplacement |
+|----------|-------------|
+| Document de cadrage (intention, wireframes, MCD/MLD/MPD, stack, IA) | `aime-enzo-m2-dev-ynov-connect-olympos-v2.pdf` |
+| Doc technique & déploiement | ce README |
+| Rapport d'audit (Activité 8) | `docs/RAPPORT_AUDIT.md` |
+| Analyse critique & feuille de route (Activité 10) | `docs/ANALYSE_CRITIQUE.md` |
+| Wireframes & design system | `design/` |
+
+---
+
+## Installation & Lancement (de zéro)
 
 ### Prérequis
 
-- Node.js 20+
-- PostgreSQL (base `olympos`)
-- Redis
-- (Optionnel) [Ollama](https://ollama.com) avec le modèle `gemma3:1b` pour l'Oracle
+| Outil | Version | Rôle |
+|-------|---------|------|
+| Node.js | 20+ | Backend & frontend |
+| Docker + Docker Compose | — | PostgreSQL 15 + Redis 7 (recommandé) |
+| [Ollama](https://ollama.com) | optionnel | Oracle IA (modèle `gemma3:1b`) |
 
-### Backend
+> Sans Docker : installer PostgreSQL 15 (créer une base `olympos`) et Redis 7 manuellement, puis adapter `DATABASE_URL` et `REDIS_URL` dans `backend/.env`.
+
+### 1. Cloner et lancer les services
+
+```bash
+git clone https://github.com/Enzo91080/olympos.git
+cd olympos
+docker compose up -d        # PostgreSQL sur :5432, Redis sur :6379
+```
+
+Identifiants PostgreSQL du docker-compose : user `postgres` / password `postgres` / base `olympos`.
+
+### 2. Backend
 
 ```bash
 cd backend
 npm install
-cp .env.example .env        # configurer les variables (voir section Variables)
+cp .env.example .env        # les valeurs par défaut fonctionnent avec le docker-compose
 npx prisma migrate dev      # crée les tables
-npx prisma db seed          # peuple les 37 cartes + le bot
-npm run start:dev           # démarre sur le port 3000
+npx prisma db seed          # peuple les 37 cartes + comptes bot et admin
+npm run start:dev           # → http://localhost:3000
 ```
 
-### Frontend
+### 3. Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev                 # démarre sur http://localhost:5173
+cp .env.example .env        # pointe vers localhost:3000 par défaut
+npm run dev                 # → http://localhost:5173
 ```
+
+### 4. (Optionnel) Oracle IA
+
+```bash
+ollama pull gemma3:1b       # puis laisser Ollama tourner (port 11434 par défaut)
+```
+
+Sans Ollama, l'Oracle renvoie une erreur 503 explicite — tout le reste du jeu fonctionne.
+
+### 5. Vérifier
+
+Ouvrir http://localhost:5173, créer un compte, un deck de démarrage est généré automatiquement → lancer une partie solo contre le bot.
+
+### Comptes créés par le seed
+
+| Compte | Identifiants | Usage |
+|--------|--------------|-------|
+| Admin | `admin@olympos.internal` / `admin123` | Page `/admin` (gestion joueurs, cartes, parties, audit log) |
+| Bot | `bot@olympos.internal` | Adversaire du mode solo (connexion impossible) |
+
+> ⚠️ Identifiants de développement uniquement — à changer avant tout déploiement public.
 
 ---
 
-## Variables d'environnement (`backend/.env`)
+## Variables d'environnement
 
-```env
-DATABASE_URL="postgresql://user:password@localhost:5432/olympos"
-REDIS_URL="redis://localhost:6379"
-JWT_SECRET="changer_en_production"
-JWT_EXPIRES_IN="7d"
-PORT=3000
+Les deux fichiers `.env.example` (backend et frontend) sont commités et documentés ; les `.env` réels sont ignorés par git.
 
-# Email (optionnel — sans ces valeurs, le lien de réinitialisation s'affiche dans la console)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=votre@gmail.com
-SMTP_PASS=votre_app_password
-SMTP_FROM=votre@gmail.com
-FRONTEND_URL=http://localhost:5173
-```
+### `backend/.env`
+
+| Variable | Obligatoire | Description |
+|----------|-------------|-------------|
+| `DATABASE_URL` | ✅ | Connexion PostgreSQL (défaut aligné sur le docker-compose) |
+| `REDIS_URL` | ✅ | Connexion Redis (état des parties en cours) |
+| `JWT_SECRET` | ✅ | Secret de signature des tokens — à générer, ne pas garder la valeur d'exemple |
+| `JWT_EXPIRES_IN` | ✅ | Durée de vie du token (défaut `7d`) |
+| `PORT` | ✅ | Port de l'API (défaut `3000`) |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | ❌ | Envoi des emails "mot de passe oublié". Sans ces valeurs, le lien s'affiche dans la console backend. Pour Gmail : utiliser un [mot de passe d'application](https://myaccount.google.com/apppasswords) |
+| `FRONTEND_URL` | ✅ | URL du front, utilisée dans les liens des emails |
+
+L'Oracle n'a pas de variable : le backend appelle Ollama sur son URL par défaut (`http://localhost:11434`).
+
+### `frontend/.env`
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | URL de l'API REST (défaut `http://localhost:3000`) |
+| `VITE_WS_URL` | URL du serveur WebSocket (même backend) |
+| `VITE_USE_MOCK` | `true` = données mockées sans backend, `false` = API réelle |
 
 ---
 
@@ -75,15 +130,37 @@ FRONTEND_URL=http://localhost:5173
 | Classement | 6 rangs ELO de Bronze à Légende |
 | Historique | Journal de toutes les parties jouées |
 | Oracle IA | Assistant stratégique en temps réel (Ollama requis) |
+| Administration | Page `/admin` : gestion des joueurs (ban, rôles), des cartes, des parties, journal d'audit |
 
 ---
 
 ## Architecture
 
-```
-Frontend (React)
-  ├── REST API  →  NestJS  →  PostgreSQL  (auth, decks, stats, historique)
-  └── WebSocket →  NestJS  →  Redis       (état de partie, verrou atomique)
+```mermaid
+flowchart LR
+    subgraph Client
+        FE[React + Vite<br/>Zustand · Tailwind]
+    end
+    subgraph Serveur["Backend NestJS :3000"]
+        REST[API REST<br/>auth · decks · cartes · stats]
+        WS[Gateway Socket.io<br/>parties · matchmaking]
+        ENGINE[Game Engine<br/>règles du jeu]
+        ORACLE[Module Oracle<br/>SSE]
+    end
+    subgraph Données
+        PG[(PostgreSQL<br/>joueurs · decks · cartes · historique)]
+        RD[(Redis<br/>état des parties · TTL 10 min · verrou NX)]
+    end
+    LLM[Ollama local<br/>gemma3:1b — optionnel]
+
+    FE -- "HTTP + JWT" --> REST
+    FE -- "WebSocket + JWT" --> WS
+    REST --> PG
+    WS --> ENGINE
+    ENGINE --> RD
+    WS -- "fin de partie : résultat + ELO" --> PG
+    REST --> ORACLE
+    ORACLE -- ":11434" --> LLM
 ```
 
 - L'état de chaque partie est stocké dans Redis avec un TTL de **10 minutes**.
@@ -461,20 +538,42 @@ Le matchmaking recherche un adversaire dans une fourchette ELO de **±200 points
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | GET | `/cards` | Lister toutes les cartes |
+| GET | `/cards/:id` | Détail d'une carte |
 
-## Partie
-
-| Méthode | Route | Description |
-|---------|-------|-------------|
-| POST | `/game` | Créer une partie (bot ou PvP) |
-| GET | `/game/:id` | Détail d'une partie |
-
-## Classement & Historique
+## Joueur
 
 | Méthode | Route | Description |
 |---------|-------|-------------|
-| GET | `/leaderboard` | Classement général |
-| GET | `/history` | Historique de ses parties |
+| GET | `/players/me` | Profil du joueur connecté |
+| PATCH | `/players/me` | Modifier son profil |
+| GET | `/players/leaderboard` | Classement général |
+
+## Parties
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/games` | Créer une partie PvP |
+| POST | `/games/solo` | Créer une partie contre le bot |
+| GET | `/games/history` | Historique de ses parties (50 dernières) |
+| GET | `/games/:id` | Détail d'une partie |
+| PATCH | `/games/:id/finish` | Clore une partie |
+
+## Matchmaking
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| POST | `/matchmaking/join` | Rejoindre la file d'attente |
+| DELETE | `/matchmaking/leave` | Quitter la file d'attente |
+
+## Administration (rôle `admin` requis)
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| GET | `/admin/stats` | Statistiques globales |
+| GET / PATCH | `/admin/players`, `/admin/players/:id` | Lister, bannir, changer le rôle |
+| GET / POST / PATCH / DELETE | `/admin/cards`, `/admin/cards/:id` | CRUD des cartes |
+| GET / PATCH | `/admin/games`, `/admin/games/:id/abandon` | Lister, forcer l'abandon |
+| GET | `/admin/audit-log` | Journal des actions admin |
 
 ## Oracle IA
 
